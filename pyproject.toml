@@ -1,7 +1,7 @@
 [project]
 name = "redactner"
 version = "0.1.0"
-description = "Local, context-aware PII redaction for Word documents (fine-tuned NER + validated rules)"
+description = "Local, context-aware PII redaction for Word documents with fine-tuned transformer NER"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -18,13 +18,12 @@ dependencies = [
   "tqdm",
   "lxml",
   "python-docx>=1.2",
-  "phonenumbers",
-  "python-stdnum",
   "faker",
   "fastapi",
   "uvicorn",
   "typer",
   "tabulate>=0.10.0",
+  "datasketch>=2.0.0",
 ]
 
 [dependency-groups]
@@ -35,6 +34,13 @@ dev = [
   "papermill",
   "jupytext",
   "pywin32; sys_platform == 'win32'",
+]
+experiments = [
+    "bitsandbytes>=0.50.2",
+    "en-core-web-trf",
+    "gliner>=0.2.29",
+    "spacy>=3.8",
+    "spacy-curated-transformers>=0.3.1",
 ]
 
 [project.scripts]
@@ -55,6 +61,7 @@ explicit = true
 [tool.uv.sources]
 # CUDA 12.8 wheels on Windows and Linux; macOS uses the standard PyPI build (CPU / Apple Silicon)
 torch = [{ index = "pytorch-cu128", marker = "sys_platform != 'darwin'" }]
+en-core-web-trf = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

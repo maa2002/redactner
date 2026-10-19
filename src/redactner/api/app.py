@@ -31,13 +31,12 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from ..docx_engine import DocxDocument, DocxError, DocxRefused
 from ..labels import DEFAULT_PRESET, PRESETS, label_info
-from ..pipeline import RedactionPipeline, build_detectors
+from ..pipeline import RedactionPipeline, build_detector
 
 STATIC_DIR = Path(__file__).parent / "static"
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 TOKEN_HEADER = "X-RedactNER-Token"
 CSP = "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; frame-ancestors 'none'"
-DETECTOR_NAMES = {"hybrid": "RedactNER (Model and Rules)", "model": "Model Only", "rules": "Rules Only"}
 
 
 # -- request models ------------------------------------------------------------------------------
@@ -47,7 +46,6 @@ def to_tau(min_confidence: float | None) -> float | None:
 
 
 class AnalyzeRequest(BaseModel):
-    detector: str | None = None
     labels: list[str] | None = None
     threshold: float | None = Field(default=None, ge=0.01, le=0.99, description="minimum model confidence")
     deny_terms: list[str] = Field(default_factory=list, max_length=200)
@@ -69,7 +67,6 @@ class RedactRequest(BaseModel):
 
 class TextRequest(BaseModel):
     text: str = Field(max_length=200_000)
-    detector: str | None = None
     labels: list[str] | None = None
     threshold: float | None = Field(default=None, ge=0.01, le=0.99)
 
@@ -125,18 +122,19 @@ class DocumentStore:
 
 # -- application factory -------------------------------------------------------------------------
 def create_app(model_dir: str | Path | None = None, device: str | None = None, max_upload_mb: int = 20,
-               port: int = 8000) -> FastAPI:
+               port: int = 8000, detector=None) -> FastAPI:
+    """Build the app around the fine-tuned model in ``model_dir`` (or an already constructed ``detector``)."""
     token = os.environ.get("REDACTNER_TOKEN") or secrets.token_urlsafe(24)
-    detectors = build_detectors(model_dir, device)
-    pipeline = RedactionPipeline(detectors)
+    detector = detector or build_detector(model_dir, device)
+    pipeline = RedactionPipeline(detector)
     store = DocumentStore()
     infer_lock = threading.Lock()  # one GPU model → serialise inference
     max_bytes = max_upload_mb * 2**20
     allowed_origins = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
-    model_info = {"name": None, "device": "cpu"}
-    if "hybrid" in detectors:
-        m = detectors["hybrid"].model
-        model_info = {"name": m.name, "device": m.device.type, "threshold": m.threshold}
+    m = detector.model
+    model_info = {"name": getattr(m, "name", "model"), "device": getattr(getattr(m, "device", None), "type", "cpu"),
+                  "threshold": float(getattr(m, "threshold", 0.5)),
+                  "category_thresholds": bool(getattr(m, "category_thresholds", None))}
 
     app = FastAPI(title="RedactNER", version="0.1.0", redoc_url=None,
                   description="Local PII redaction for Word documents. All endpoints need the "
@@ -179,17 +177,16 @@ def create_app(model_dir: str | Path | None = None, device: str | None = None, m
     # -- API --------------------------------------------------------------------------------
     @app.get("/api/v1/health")
     def health() -> dict:
-        return {"status": "ok", "model": model_info, "detectors": sorted(detectors)}
+        return {"status": "ok", "model": model_info}
 
     @app.get("/api/v1/config", dependencies=[Depends(require_token)])
     def config() -> dict:
-        default_threshold = round(1.0 - model_info.get("threshold", 0.5), 2)  # as minimum confidence
+        default_threshold = round(1.0 - model_info["threshold"], 2)  # as minimum confidence
         return {
-            "labels": label_info(),  # deny-list terms come back as CUSTOM and are always applied
+            "labels": label_info(),  # Always Redact terms come back as CUSTOM and are always applied
             "presets": PRESETS, "default_preset": DEFAULT_PRESET,
             "modes": [{"id": "label", "name": "Labels ([PERSON_1])"}, {"id": "mask", "name": "Black-Out (█████)"}],
-            "detectors": [{"id": d, "name": DETECTOR_NAMES[d]} for d in ("hybrid", "model", "rules") if d in detectors],
-            "default_detector": pipeline.default_detector, "default_threshold": default_threshold,
+            "default_threshold": default_threshold, "tuned_thresholds": model_info["category_thresholds"],
             "max_upload_mb": max_upload_mb, "model": model_info,
         }
 
@@ -221,20 +218,13 @@ def create_app(model_dir: str | Path | None = None, device: str | None = None, m
         doc_id = store.put(Entry(data=data, filename=filename, doc=doc))
         return {"doc_id": doc_id, "filename": filename, "stats": doc.stats, "warnings": doc.warnings}
 
-    def check_detector(name: str | None) -> str:
-        name = name or pipeline.default_detector
-        if name not in detectors:
-            raise HTTPException(400, f"Detector '{name}' is not available.")
-        return name
-
     @app.post("/api/v1/documents/{doc_id}/analyze", dependencies=[Depends(require_token)])
     async def analyze(doc_id: str, req: AnalyzeRequest) -> dict:
         entry = store.get(doc_id)
-        detector = check_detector(req.detector)
 
         def work() -> dict:
             with infer_lock:
-                return pipeline.analyze(entry.doc, detector=detector, labels=req.labels, threshold=to_tau(req.threshold),
+                return pipeline.analyze(entry.doc, labels=req.labels, threshold=to_tau(req.threshold),
                                         deny_terms=req.deny_terms, allow_terms=req.allow_terms)
 
         entry.analysis = await run_in_threadpool(work)
@@ -274,17 +264,17 @@ def create_app(model_dir: str | Path | None = None, device: str | None = None, m
 
     @app.post("/api/v1/redact", dependencies=[Depends(require_token)])
     async def redact_one_shot(request: Request, mode: str = "label", preset: str = DEFAULT_PRESET,
-                              detector: str | None = None, threshold: float | None = None) -> Response:
+                              threshold: float | None = None) -> Response:
         if mode not in ("label", "mask") or preset not in PRESETS:
             raise HTTPException(400, "Invalid mode or preset.")
+        if threshold is not None and not 0.01 <= threshold <= 0.99:
+            raise HTTPException(400, "Threshold must be between 0.01 and 0.99.")
         data = await read_docx_body(request)
-        det = check_detector(detector)
 
         def work() -> tuple[bytes, dict]:
             load_doc(data)  # validation with proper HTTP errors
             with infer_lock:
-                return pipeline.redact_bytes(data, mode=mode, detector=det, labels=PRESETS[preset],
-                                             threshold=to_tau(threshold))
+                return pipeline.redact_bytes(data, mode=mode, labels=PRESETS[preset], threshold=to_tau(threshold))
 
         out, rep = await run_in_threadpool(work)
         return Response(out, media_type=DOCX_MIME,
@@ -293,11 +283,9 @@ def create_app(model_dir: str | Path | None = None, device: str | None = None, m
 
     @app.post("/api/v1/analyze-text", dependencies=[Depends(require_token)])
     async def analyze_text(req: TextRequest) -> dict:
-        det = check_detector(req.detector)
-
         def work():
             with infer_lock:
-                return pipeline.detect_text(req.text, detector=det, labels=req.labels, threshold=to_tau(req.threshold))
+                return pipeline.detect_text(req.text, labels=req.labels, threshold=to_tau(req.threshold))
 
         spans = await run_in_threadpool(work)
         return {"entities": [{**sp.to_dict(), "text": req.text[sp.start:sp.end]} for sp in spans]}

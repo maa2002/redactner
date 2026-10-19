@@ -11,25 +11,26 @@ from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
 
+from .detector import PIIDetector, apply_policy, resolve_overlaps
 from .docx_engine import DocxDocument
-from .fusion import HybridDetector, apply_policy, resolve_overlaps
 from .labels import PRESETS
 from .operators import ReplacementBuilder
-from .rules import RuleDetector
 from .types import Span
 
 
-def build_detectors(model_dir: str | Path | None, device: str | None = None) -> dict[str, HybridDetector]:
-    """The three detector configurations exposed by the app: hybrid, model only, rules only."""
-    rules = RuleDetector()
-    detectors = {"rules": HybridDetector(None, rules, use_rules=True, use_propagation=False)}
-    if model_dir and Path(model_dir).exists():
-        from .inference import TokenClassifierDetector  # heavy import (torch) only when a model exists
+class ModelNotFoundError(FileNotFoundError):
+    pass
 
-        model = TokenClassifierDetector(model_dir, device=device)
-        detectors["hybrid"] = HybridDetector(model, rules, use_rules=True, use_propagation=True)
-        detectors["model"] = HybridDetector(model, use_rules=False, use_propagation=False)
-    return detectors
+
+def build_detector(model_dir: str | Path, device: str | None = None) -> PIIDetector:
+    """Load the fine-tuned checkpoint (``models/redactner-best`` by default) as the app's detector."""
+    path = Path(model_dir)
+    if not (path / "config.json").exists():
+        raise ModelNotFoundError(f"No fine-tuned model found at {path}. Download the repository with its "
+                                 "models folder or train one with the notebooks.")
+    from .inference import TokenClassifierDetector  # heavy import (torch) only when needed
+
+    return PIIDetector(TokenClassifierDetector(path, device=device))
 
 
 def split_by_segment(span: Span, starts: list[int], lengths: list[int]) -> list[tuple[int, int, int]]:
@@ -46,19 +47,13 @@ def split_by_segment(span: Span, starts: list[int], lengths: list[int]) -> list[
 
 
 class RedactionPipeline:
-    def __init__(self, detectors: dict[str, HybridDetector]) -> None:
-        self.detectors = detectors
-
-    @property
-    def default_detector(self) -> str:
-        return "hybrid" if "hybrid" in self.detectors else "rules"
+    def __init__(self, detector: PIIDetector) -> None:
+        self.detector = detector
 
     # -- analysis ----------------------------------------------------------------------------
-    def detect_text(self, text: str, detector: str | None = None, labels: Iterable[str] | None = None,
-                    threshold: float | None = None, deny_terms: Iterable[str] = (),
-                    allow_terms: Iterable[str] = ()) -> list[Span]:
-        det = self.detectors[detector or self.default_detector]
-        spans = det.detect(text, threshold=threshold, deny_terms=list(deny_terms))
+    def detect_text(self, text: str, labels: Iterable[str] | None = None, threshold: float | None = None,
+                    deny_terms: Iterable[str] = (), allow_terms: Iterable[str] = ()) -> list[Span]:
+        spans = self.detector.detect(text, threshold=threshold, deny_terms=list(deny_terms))
         return apply_policy(text, spans, labels if labels is not None else PRESETS["strict"], allow_terms)
 
     def analyze(self, doc: DocxDocument, **kwargs) -> dict:

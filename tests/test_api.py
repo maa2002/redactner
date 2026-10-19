@@ -1,8 +1,9 @@
-"""API tests with the rules-only pipeline (no GPU or checkpoint needed)."""
+"""API tests with a stub model (no GPU or checkpoint needed)."""
 
 from io import BytesIO
 
 import pytest
+from conftest import stub_detector
 from docx import Document
 from fastapi.testclient import TestClient
 
@@ -27,7 +28,7 @@ def make_docx() -> bytes:
 
 @pytest.fixture(scope="module")
 def client():
-    app = create_app(model_dir=None)
+    app = create_app(detector=stub_detector({EMAIL: "EMAIL", PHONE: "PHONE"}))
     with TestClient(app) as c:
         c.headers.update({"X-RedactNER-Token": app.state.token})
         yield c
@@ -54,7 +55,7 @@ def test_upload_analyze_redact_download(client):
                      headers={"Content-Type": "application/octet-stream", "X-Filename": "cv.docx"})
     assert up.status_code == 200, up.text
     doc_id = up.json()["doc_id"]
-    res = client.post(f"/api/v1/documents/{doc_id}/analyze", json={"detector": "rules"})
+    res = client.post(f"/api/v1/documents/{doc_id}/analyze", json={})
     assert res.status_code == 200, res.text
     found = {(e["text"], e["label"]) for e in res.json()["entities"]}
     assert (EMAIL, "EMAIL") in found and (PHONE, "PHONE") in found
@@ -73,3 +74,16 @@ def test_rejects_garbage_and_validation_does_not_echo(client):
     doc_id = up.json()["doc_id"]
     r = client.post(f"/api/v1/documents/{doc_id}/analyze", json={"threshold": "SECRET-VALUE"})
     assert r.status_code == 422 and "SECRET-VALUE" not in r.text
+
+
+def test_config_and_health_describe_the_model(client):
+    cfg = client.get("/api/v1/config").json()
+    assert "detectors" not in cfg and cfg["model"]["name"] == "stub-model"
+    assert client.get("/api/v1/health").json()["status"] == "ok"
+
+
+def test_missing_model_is_reported_clearly(tmp_path):
+    from redactner.pipeline import ModelNotFoundError
+
+    with pytest.raises(ModelNotFoundError):
+        create_app(model_dir=tmp_path / "missing")

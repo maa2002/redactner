@@ -9,9 +9,9 @@ from dataclasses import asdict, dataclass
 class Span:
     """A character span ``text[start:end]`` labelled as one PII type.
 
-    ``source`` records provenance: ``model`` (neural NER), ``rule`` (pattern
-    recogniser), ``propagated`` (document-level consistency), ``deny`` (user
-    deny-list) or ``user`` (added manually in the review UI).
+    ``source`` records provenance: ``model`` (the fine-tuned token classifier),
+    ``deny`` (a term on the user's Always Redact list) or ``user`` (added
+    manually in the review UI).
     """
 
     start: int

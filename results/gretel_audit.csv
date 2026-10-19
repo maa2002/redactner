@@ -1,0 +1,417 @@
+doc_id,item,origin,start,end,label,text,verdict
+gretel-test-653,G1,gold,24,34,ORGANIZATION,B Bank Ltd,OK
+gretel-test-653,M1,model,40,50,IP_ADDRESS,5243611ABC,NOT_PII
+gretel-test-653,N1,neither,,,FINANCIAL,1234567890,MISSED
+gretel-test-2142,G1,gold,93,118,PERSON,Destiny Temistocle Ovadia,OK
+gretel-test-2142,G2,gold,158,162,DATE,-03-,BOUNDARY
+gretel-test-2142,G3,gold,167,177,ORGANIZATION,Hall Group,OK
+gretel-test-2142,G4,gold,188,213,PERSON,Destiny Temistocle Ovadia,OK
+gretel-test-2142,G5,gold,260,270,ORGANIZATION,Hall Group,OK
+gretel-test-2142,G6,gold,281,306,PERSON,Destiny Temistocle Ovadia,OK
+gretel-test-2142,G7,gold,352,362,ORGANIZATION,Hall Group,OK
+gretel-test-2142,G8,gold,373,398,PERSON,Destiny Temistocle Ovadia,OK
+gretel-test-2142,G9,gold,440,450,ORGANIZATION,Hall Group,OK
+gretel-test-2142,G10,gold,461,486,PERSON,Destiny Temistocle Ovadia,OK
+gretel-test-2142,G11,gold,527,537,ORGANIZATION,Hall Group,OK
+gretel-test-2142,G12,gold,630,637,PERSON,Destiny,OK
+gretel-test-2142,G13,gold,640,657,PERSON,Temistocle Ovadia,OK
+gretel-test-2142,G14,gold,660,675,ADDRESS,8353 Gina Plain,OK
+gretel-test-2142,M1,model,247,257,DATE,2022-03-02,MISSED
+gretel-test-2142,M2,model,339,349,DATE,2022-03-03,MISSED
+gretel-test-2142,M3,model,365,370,ADDRESS,12348,NOT_PII
+gretel-test-2142,M4,model,427,437,DATE,2022-03-04,MISSED
+gretel-test-2142,M5,model,514,524,DATE,2022-03-05,MISSED
+gretel-test-2142,M6,model,623,627,ADDRESS,1001,MISSED
+gretel-test-2142,M7,model,678,694,LOCATION,North Robertberg,MISSED
+gretel-test-2142,M8,model,697,702,ADDRESS,73122,MISSED
+gretel-test-1483,G1,gold,348,354,DATE,-03-31,NOT_PII
+gretel-test-1483,M1,model,56,89,URL,http://www.w3.org/2001/XMLSchema-,NOT_PII
+gretel-test-1483,M2,model,112,137,URL,http://www.xbrl.org/2003/,NOT_PII
+gretel-test-1483,M3,model,159,192,URL,http://www.xbrl.org/2003/linkbase,NOT_PII
+gretel-test-1483,M4,model,204,245,URL,http://www.xbrl.org/uk-gaap/2009-03-31/fs,NOT_PII
+gretel-test-1483,M5,model,262,294,URL,http://www.xbrl.org/2003/iso4217,NOT_PII
+gretel-test-1483,M6,model,358,399,URL,http://www.xbrl.org/uk-gaap/2009-03-31/fs,NOT_PII
+gretel-test-4340,G1,gold,176,195,PERSON,Francesco Antonetti,OK
+gretel-test-4340,G2,gold,205,230,ADDRESS,"971 Adams Parks, Apt. 265",OK
+gretel-test-4340,G3,gold,232,240,DATE,Tax Year,NOT_PII
+gretel-test-4340,G4,gold,242,246,DATE,2022,OK
+gretel-test-4340,G5,gold,281,296,ORGANIZATION,XYZ Corporation,OK
+gretel-test-4340,G6,gold,420,455,DATE,"January 1, 2022 - December 31, 2022",OK
+gretel-test-4340,G7,gold,494,549,CREDENTIAL,xoxb-196499793636-859650828707-wRMU3x8AbervU8MLc3TOsnPT,OK
+gretel-test-4340,G8,gold,577,580,CREDENTIAL,044,OK
+gretel-test-4340,M1,model,306,331,ADDRESS,"1234 Park Lane, Suite 567",MISSED
+gretel-test-4340,M2,model,338,346,LOCATION,New York,MISSED
+gretel-test-4340,M3,model,354,356,LOCATION,NY,MISSED
+gretel-test-4340,M4,model,367,372,ADDRESS,10001,MISSED
+gretel-test-1901,G1,gold,27,42,ORGANIZATION,XYZ Corporation,OK
+gretel-test-1901,G2,gold,64,79,ORGANIZATION,XYZ Corporation,OK
+gretel-test-1901,G3,gold,418,422,DATE,2022,OK
+gretel-test-1901,G4,gold,500,504,DATE,2022,OK
+gretel-test-1901,G5,gold,691,706,ORGANIZATION,XYZ Corporation,OK
+gretel-test-1901,G6,gold,1278,1293,ORGANIZATION,XYZ Corporation,OK
+gretel-test-1901,G7,gold,1801,1816,ORGANIZATION,XYZ Corporation,OK
+gretel-test-3052,G1,gold,167,186,ORGANIZATION,XYZ Waste Solutions,OK
+gretel-test-3052,G2,gold,188,234,ADDRESS,"1234 Main Street, Toronto, ON, Canada, M5A 1E9",OK
+gretel-test-3052,G3,gold,260,275,PHONE,+1-800-123-4567,OK
+gretel-test-2937,G1,gold,26,39,DATE,Tax Year 2021,BOUNDARY
+gretel-test-2937,G2,gold,60,77,PERSON,Ashley Cartwright,OK
+gretel-test-2937,G3,gold,189,204,ADDRESS,3256 Jill Plaza,OK
+gretel-test-2937,G4,gold,241,258,PERSON,Ashley Cartwright,OK
+gretel-test-2937,G5,gold,261,287,EMAIL,email@ashleycartwright.org,OK
+gretel-test-2937,G6,gold,296,322,EMAIL,email@ashleycartwright.org,OK
+gretel-test-2937,G7,gold,380,397,PERSON,Ashley Cartwright,OK
+gretel-test-2937,G8,gold,422,426,DATE,2021,OK
+gretel-test-2937,G9,gold,481,490,DATE,January 1,OK
+gretel-test-2937,G10,gold,492,496,DATE,2017,OK
+gretel-test-2937,G11,gold,541,558,PERSON,Ashley Cartwright,OK
+gretel-test-2937,M1,model,78,88,ORGANIZATION,Foundation,BOUNDARY
+gretel-test-2937,M2,model,128,170,ID_NUMBER,AIzayk3t9cAzI3bIzfq0rkCMO\_4X23-G6jToAqAOC,MISSED
+gretel-test-2937,M3,model,206,213,LOCATION,Anytown,MISSED
+gretel-test-2937,M4,model,398,408,ORGANIZATION,Foundation,BOUNDARY
+gretel-test-2937,M5,model,559,569,ORGANIZATION,Foundation,BOUNDARY
+gretel-test-2937,M6,model,611,618,LOCATION,Anytown,MISSED
+gretel-test-5212,G1,gold,465,478,PERSON,Alex T. Pinto,OK
+gretel-test-5212,G2,gold,501,511,ID_NUMBER,CID-878308,OK
+gretel-test-5212,G3,gold,517,522,PERSON,Pinto,OK
+gretel-test-5212,G4,gold,534,551,ADDRESS,507 Joseph Shores,OK
+gretel-test-5212,G5,gold,578,588,DATE,1923-07-04,OK
+gretel-test-5212,G6,gold,772,777,PERSON,Pinto,OK
+gretel-test-5300,G1,gold,92,99,ORGANIZATION,XYZ PLC,OK
+gretel-test-5300,G2,gold,185,198,DATE,over 50 years,NOT_PII
+gretel-test-5300,G3,gold,200,207,ORGANIZATION,XYZ PLC,OK
+gretel-test-5300,G4,gold,314,321,ORGANIZATION,XYZ PLC,OK
+gretel-test-5300,G5,gold,424,432,DATE,10 years,NOT_PII
+gretel-test-5300,G6,gold,655,668,DATE,semi-annually,NOT_PII
+gretel-test-5300,G7,gold,672,708,DATE,June 30 and December 31 of each year,NOT_PII
+gretel-test-5300,G8,gold,785,798,DATE,"June 30, 2032",OK
+gretel-test-5300,G9,gold,895,902,ORGANIZATION,XYZ PLC,OK
+gretel-test-5300,G10,gold,1549,1556,ORGANIZATION,XYZ PLC,OK
+gretel-test-4119,G1,gold,31,44,ORGANIZATION,EcoFuture plc,OK
+gretel-test-4119,G2,gold,63,76,ORGANIZATION,EcoFuture plc,OK
+gretel-test-4119,G3,gold,695,708,DATE,semi-annually,NOT_PII
+gretel-test-4119,G4,gold,748,761,DATE,"July 15, 2030",OK
+gretel-test-5561,G1,gold,97,111,DATE,"March 15, 2023",OK
+gretel-test-5561,G2,gold,631,643,DATE,"May 25, 2024",OK
+gretel-test-5561,G3,gold,645,651,DATE,Friday,OK
+gretel-test-5561,G4,gold,893,905,ORGANIZATION,Stamps & Co.,OK
+gretel-test-5561,G5,gold,1015,1037,FINANCIAL,GB25RBOS11223312345678,OK
+gretel-test-5561,G6,gold,1267,1283,PHONE,+44 20 1234 5678,OK
+gretel-test-5561,G7,gold,1301,1321,EMAIL,info@stampsandco.com,OK
+gretel-test-5561,G8,gold,1330,1350,EMAIL,info@stampsandco.com,OK
+gretel-test-5561,G9,gold,1377,1389,ORGANIZATION,Stamps & Co.,OK
+gretel-test-5561,G10,gold,1441,1449,PERSON,John Doe,OK
+gretel-test-5561,G11,gold,1451,1459,PERSON,John Doe,OK
+gretel-test-5561,G12,gold,1483,1495,ORGANIZATION,Stamps & Co.,OK
+gretel-test-5561,M1,model,77,90,ID_NUMBER,CTC-23456-ABC,NOT_PII
+gretel-test-5561,M2,model,663,690,ADDRESS,1234 Stamp Collector's Lane,MISSED
+gretel-test-5561,M3,model,692,698,LOCATION,London,MISSED
+gretel-test-5561,M4,model,704,711,ADDRESS,NW1 2LT,MISSED
+gretel-test-5561,M5,model,927,943,ORGANIZATION,Bank of Scotland,MISSED
+gretel-test-5561,M6,model,1000,1008,FINANCIAL,RBOSGB2L,MISSED
+gretel-test-5561,N1,neither,,,FINANCIAL,12345678,MISSED
+gretel-test-5561,N2,neither,,,FINANCIAL,11-22-33,MISSED
+gretel-test-3978,G1,gold,285,300,PERSON,Irmi M. Siering,OK
+gretel-test-3978,G2,gold,960,964,CREDENTIAL,6462,NOT_PII
+gretel-test-3978,M1,model,50,89,URL,http://www.fpml.org/FpML-5/confirmation,NOT_PII
+gretel-test-3978,M2,model,103,188,URL,http://www.swap.com/22298%20Williams%26nbsp;Junction%20SacrConstant%20Maturity%20Swap,NOT_PII
+gretel-test-3978,M3,model,211,232,URL,http://www.fpml.i5462,NOT_PII
+gretel-test-3978,M4,model,1107,1117,DATE,2023-06-01,MISSED
+gretel-test-3978,M5,model,1147,1157,DATE,2033-06-01,MISSED
+gretel-test-177,G1,gold,39,47,PERSON,John Doe,OK
+gretel-test-177,G2,gold,63,73,DATE,01/01/1980,OK
+gretel-test-177,G3,gold,98,109,ID_NUMBER,123-45-6789,OK
+gretel-test-177,G4,gold,119,144,ADDRESS,"123 Main St, Anytown, USA",OK
+gretel-test-177,G5,gold,159,173,PHONE,(123) 456-7890,OK
+gretel-test-177,G6,gold,189,206,EMAIL,johndoe@email.com,OK
+gretel-test-177,G7,gold,338,353,ORGANIZATION,XYZ Corporation,OK
+gretel-test-177,N1,neither,,,FINANCIAL,123456789,MISSED
+gretel-test-4069,G1,gold,51,75,PERSON,Vinicio Moraleda-Alemany,OK
+gretel-test-4069,G2,gold,78,95,ORGANIZATION,Business Ventures,NOT_PII
+gretel-test-274,G1,gold,298,308,DATE,2022-03-15,OK
+gretel-test-274,G2,gold,344,366,PERSON,Maurizio Trüb-Mosemann,OK
+gretel-test-274,G3,gold,385,411,ADDRESS,"06433 Soto Spur, Apt. 9265",OK
+gretel-test-274,G4,gold,460,465,DATE,today,NOT_PII
+gretel-test-274,G5,gold,621,631,DATE,2022-03-15,OK
+gretel-test-274,G6,gold,681,692,ID_NUMBER,110-59-5676,OK
+gretel-test-274,G7,gold,824,837,PERSON,Trüb-Mosemann,OK
+gretel-test-274,G8,gold,1053,1063,DATE,2022-03-15,OK
+gretel-test-274,G9,gold,1138,1148,DATE,last month,NOT_PII
+gretel-test-274,G10,gold,1193,1206,PERSON,Trüb-Mosemann,OK
+gretel-test-274,G11,gold,1251,1261,DATE,2022-03-15,OK
+gretel-test-274,G12,gold,1538,1548,DATE,2022-03-15,OK
+gretel-test-274,G13,gold,1638,1651,PERSON,Trüb-Mosemann,OK
+gretel-test-274,G14,gold,1681,1686,DATE,today,NOT_PII
+gretel-test-274,G15,gold,1726,1736,DATE,the next 3,NOT_PII
+gretel-test-274,M1,model,761,765,CREDENTIAL,0497,MISSED
+gretel-test-274,M2,model,894,898,CREDENTIAL,0497,MISSED
+gretel-test-274,M3,model,1520,1524,CREDENTIAL,0497,MISSED
+gretel-test-274,M4,model,1552,1557,DATE,12:05,NOT_PII
+gretel-test-735,G1,gold,16,38,ORGANIZATION,Washington Mutual Bank,OK
+gretel-test-735,G2,gold,85,114,ADDRESS,8121 Angela Village Suite 532,OK
+gretel-test-735,G3,gold,115,132,PERSON,Vittorio M. Golgi,OK
+gretel-test-735,G4,gold,133,152,DATE,1991-02-12 03:22:51,OK
+gretel-test-735,N1,neither,,,FINANCIAL,WASHMT0000123456,MISSED
+gretel-test-2677,G1,gold,292,301,ORGANIZATION,Acme Corp,OK
+gretel-test-2677,G2,gold,365,377,PERSON,Maike Flantz,OK
+gretel-test-2677,G3,gold,661,669,ID_NUMBER,Kx-85894,OK
+gretel-test-2677,G4,gold,1421,1430,ORGANIZATION,Acme Corp,OK
+gretel-test-2677,M1,model,52,71,URL,http://www.fpml.org,NOT_PII
+gretel-test-2677,M2,model,72,80,URL,FpML-5-3,NOT_PII
+gretel-test-2677,M3,model,99,140,URL,http://www.w3.org/2001/XMLSchema-instance,NOT_PII
+gretel-test-2677,M4,model,168,196,URL,http://www.fpml.org/FpML-5-3,NOT_PII
+gretel-test-2677,M5,model,197,236,URL,http://www.fpml.org/schema/fpml-5-3.xsd,NOT_PII
+gretel-test-2677,M6,model,437,452,ADDRESS,987 Debbie Lane,MISSED
+gretel-test-2677,M7,model,487,497,LOCATION,South Joan,MISSED
+gretel-test-2677,M8,model,850,860,DATE,2022-01-01,MISSED
+gretel-test-2677,M9,model,905,915,DATE,2027-01-01,MISSED
+gretel-test-3420,G1,gold,72,87,ORGANIZATION,XYZ Corporation,OK
+gretel-test-3420,G2,gold,1337,1356,PERSON,Nancy Kristin Gross,OK
+gretel-test-3420,G3,gold,1613,1640,ORGANIZATION,Mary Glens Community Center,OK
+gretel-test-3420,G4,gold,1653,1667,ADDRESS,558 Mary Glens,OK
+gretel-test-3420,G5,gold,2382,2397,ORGANIZATION,XYZ Corporation,OK
+gretel-test-532,G1,gold,139,151,ORGANIZATION,TechEco Inc.,OK
+gretel-test-532,G2,gold,171,188,DATE,"December 31, 2021",OK
+gretel-test-532,G3,gold,267,302,ORGANIZATION,Institute of Environmental Auditors,OK
+gretel-test-532,G4,gold,737,772,ORGANIZATION,Institute of Environmental Auditors,OK
+gretel-test-532,G5,gold,800,812,ORGANIZATION,TechEco Inc.,OK
+gretel-test-532,G6,gold,847,878,DATE,"the year ended December 1, 2021",BOUNDARY
+gretel-test-532,G7,gold,1267,1279,ORGANIZATION,TechEco Inc.,OK
+gretel-test-532,G8,gold,1949,1961,ORGANIZATION,TechEco Inc.,OK
+gretel-test-532,G9,gold,2246,2258,ORGANIZATION,TechEco Inc.,OK
+gretel-test-2038,G1,gold,125,141,PERSON,Jeremy Leon Long,OK
+gretel-test-2038,G2,gold,229,245,PERSON,Jeremy Leon Long,OK
+gretel-test-2038,G3,gold,274,302,ADDRESS,"593 Kenneth Curve, Walkerton",OK
+gretel-test-2038,G4,gold,527,548,DATE,At least 21 years old,NOT_PII
+gretel-test-2038,G5,gold,609,617,DATE,the year,NOT_PII
+gretel-test-2038,G6,gold,820,824,DATE,2022,OK
+gretel-test-2038,G7,gold,959,963,DATE,year,NOT_PII
+gretel-test-2038,G8,gold,967,971,DATE,year,NOT_PII
+gretel-test-3396,G1,gold,27,42,PERSON,Horacio Montoya,OK
+gretel-test-3396,G2,gold,78,88,DATE,2022-03-01,OK
+gretel-test-3396,G3,gold,182,197,PERSON,Horacio Montoya,OK
+gretel-test-3396,G4,gold,372,380,ORGANIZATION,Logitech,OK
+gretel-test-3396,G5,gold,742,748,CREDENTIAL,472223,OK
+gretel-test-3396,G6,gold,774,806,ADDRESS,"36401 Elizabeth Ports, Suite 627",OK
+gretel-test-3396,G7,gold,903,918,EMAIL,follow-up email,NOT_PII
+gretel-test-203,G1,gold,66,70,PERSON,Hall,LABEL
+gretel-test-203,G2,gold,193,197,PERSON,Hall,LABEL
+gretel-test-203,G3,gold,316,320,PERSON,Hall,LABEL
+gretel-test-203,G4,gold,325,344,PERSON,Lucie Claude Moreau,OK
+gretel-test-203,G5,gold,352,369,DATE,"December 31, 2021",OK
+gretel-test-203,G6,gold,714,731,ADDRESS,2912 Carson Place,OK
+gretel-test-203,G7,gold,984,988,PERSON,Hall,LABEL
+gretel-test-203,G8,gold,1550,1554,PERSON,Hall,LABEL
+gretel-test-203,G9,gold,1567,1583,DATE,"December 31, 202",OK
+gretel-test-203,G10,gold,1584,1588,PERSON,Hall,LABEL
+gretel-test-203,G11,gold,1693,1712,PERSON,Lucie Claude Moreau,OK
+gretel-test-203,G12,gold,1718,1722,PERSON,Hall,LABEL
+gretel-test-203,M1,model,51,65,DATE,"December 31, 2",MISSED
+gretel-test-203,M2,model,733,740,LOCATION,Anytown,MISSED
+gretel-test-3272,G1,gold,32,42,DATE,06/15/2022,OK
+gretel-test-3272,G2,gold,53,68,ORGANIZATION,ABC Corporation,OK
+gretel-test-3272,G3,gold,187,208,PERSON,Geneviève Gros-Durand,OK
+gretel-test-3272,G4,gold,225,231,PERSON,546789,LABEL
+gretel-test-3272,G5,gold,587,608,PERSON,Geneviève Gros-Durand,OK
+gretel-test-3272,G6,gold,653,668,ORGANIZATION,ABC Corporation,OK
+gretel-test-3272,G7,gold,770,791,PERSON,Geneviève Gros-Durand,OK
+gretel-test-3272,G8,gold,1067,1079,PHONE,537-705-2999,OK
+gretel-test-3272,G9,gold,1099,1120,PERSON,Geneviève Gros-Durand,OK
+gretel-test-3272,G10,gold,1121,1138,ADDRESS,1786 Cannon Green,OK
+gretel-test-3272,M1,model,808,814,FINANCIAL,546789,MISSED
+gretel-test-3272,M2,model,1139,1146,LOCATION,Anytown,MISSED
+gretel-test-2944,G1,gold,72,106,DATE,"this ______ day of ___________, 20",NOT_PII
+gretel-test-2944,G2,gold,1270,1278,DATE,the year,NOT_PII
+gretel-test-2944,G3,gold,1488,1496,DATE,the year,NOT_PII
+gretel-test-2944,G4,gold,1667,1675,DATE,the year,NOT_PII
+gretel-test-2782,G1,gold,85,99,IP_ADDRESS,176.169.229.38,OK
+gretel-test-2782,G2,gold,102,125,PERSON,Isabella Fredo Storladi,OK
+gretel-test-2782,G3,gold,128,153,ADDRESS,"7 Markboulevard, Apt. 782",OK
+gretel-test-2782,G4,gold,192,206,IP_ADDRESS,176.169.229.38,OK
+gretel-test-2782,G5,gold,209,232,PERSON,Isabella Fredo Storladi,OK
+gretel-test-2782,G6,gold,235,260,ADDRESS,"7 Markboulevard, Apt. 782",OK
+gretel-test-2782,G7,gold,298,312,IP_ADDRESS,176.169.229.38,OK
+gretel-test-2782,G8,gold,315,338,PERSON,Isabella Fredo Storladi,OK
+gretel-test-2782,G9,gold,341,366,ADDRESS,"7 Markboulevard, Apt. 782",OK
+gretel-test-2782,M1,model,55,74,DATE,2022-01-01 10:30:00,MISSED
+gretel-test-2782,M2,model,158,177,DATE,2022-01-01 10:31:00,MISSED
+gretel-test-2782,M3,model,265,284,DATE,2022-01-01 10:32:00,MISSED
+gretel-test-3203,G1,gold,339,360,EMAIL,raymond16@hawkins.org,OK
+gretel-test-3203,G2,gold,584,603,PERSON,Toni Gelsomina Luzi,OK
+gretel-test-3203,G3,gold,827,857,ADDRESS,"4404 Johnston Haven, Suite 271",OK
+gretel-test-3203,M1,model,56,89,URL,http://www.w3.org/2001/XMLSchema-,NOT_PII
+gretel-test-3203,M2,model,111,144,URL,http://www.xbrl.org/2003/linkbase,NOT_PII
+gretel-test-3203,M3,model,159,184,URL,http://www.xbrl.org/2003/,NOT_PII
+gretel-test-3203,M4,model,213,243,URL,http://www.xbrl.org/2017/data-,NOT_PII
+gretel-test-3203,M5,model,429,439,DATE,2022-03-31,MISSED
+gretel-test-3203,M6,model,512,532,PERSON,ctxToniGelsominaLuzi,MISSED
+gretel-test-3203,M7,model,672,682,DATE,2022-03-31,MISSED
+gretel-test-3203,M8,model,926,936,DATE,2022-03-31,MISSED
+gretel-test-3203,M9,model,1076,1088,USERNAME,ctxRaymond16,MISSED
+gretel-test-3203,N1,neither,,,USERNAME,ctxRaymond16,MISSED
+gretel-test-4108,G1,gold,5,17,PERSON,Swantje Putz,OK
+gretel-test-4108,G2,gold,111,132,ADDRESS,43616 Nicole Parkways,OK
+gretel-test-4108,G3,gold,276,294,ORGANIZATION,Avery Rentals Ltd.,OK
+gretel-test-4108,G4,gold,296,313,EMAIL,ulozano@avery.net,OK
+gretel-test-4108,G5,gold,356,368,PERSON,Swantje Putz,OK
+gretel-test-4108,G6,gold,436,445,DATE,12 months,NOT_PII
+gretel-test-4108,G7,gold,461,471,DATE,01/01/2023,OK
+gretel-test-4108,G8,gold,486,496,DATE,31/12/2023,OK
+gretel-test-4108,G9,gold,516,523,DATE,monthly,NOT_PII
+gretel-test-4108,G10,gold,594,630,DATE,the first day of each calendar month,NOT_PII
+gretel-test-4108,G11,gold,1154,1157,CREDENTIAL,089,OK
+gretel-test-4108,G12,gold,1237,1255,ORGANIZATION,Avery Rentals Ltd.,OK
+gretel-test-4108,G13,gold,1257,1274,EMAIL,ulozano@avery.net,OK
+gretel-test-347,G1,gold,75,90,ORGANIZATION,Bank of America,OK
+gretel-test-347,G2,gold,227,235,ID_NUMBER,Q899W678,OK
+gretel-test-347,G3,gold,242,259,PERSON,Julie A. Maréchal,OK
+gretel-test-347,G4,gold,269,296,ADDRESS,"089 Dean Groves, Apt. 77592",OK
+gretel-test-347,G5,gold,319,328,FINANCIAL,944622597,OK
+gretel-test-347,G6,gold,361,378,PERSON,Julie A. Maréchal,OK
+gretel-test-347,G7,gold,574,603,DATE,01-Mar-23 | Transfer to GBP |,BOUNDARY
+gretel-test-347,G8,gold,636,654,DATE,"802.30
+03-Mar-23 |",BOUNDARY
+gretel-test-347,G9,gold,705,724,DATE,"2288.75
+10-Mar-23 |",BOUNDARY
+gretel-test-347,G10,gold,774,792,DATE,"666.05
+15-Mar-23 |",BOUNDARY
+gretel-test-347,G11,gold,907,931,DATE,"01-Mar-23 to 31-Mar-23
+*",BOUNDARY
+gretel-test-347,M1,model,395,405,FINANCIAL,1234567890,MISSED
+gretel-test-1459,G1,gold,48,53,ORGANIZATION,BBank,OK
+gretel-test-1459,M1,model,0,14,FINANCIAL,MT799 NYHKUS33,NOT_PII
+gretel-test-1459,N1,neither,,,FINANCIAL,1234567890,MISSED
+gretel-test-170,G1,gold,5,19,PERSON,Nereida Solana,OK
+gretel-test-170,G2,gold,261,271,DATE,01/01/2023,OK
+gretel-test-170,G3,gold,440,451,FINANCIAL,UHYEUSSI686,OK
+gretel-test-170,G4,gold,511,526,ADDRESS,29936 Young Row,OK
+gretel-test-170,M1,model,275,285,DATE,31/12/2023,MISSED
+gretel-test-3369,G1,gold,5,19,PERSON,Mr. Alan Gross,OK
+gretel-test-3369,G2,gold,352,371,ADDRESS,6660 Mason Mountain,OK
+gretel-test-3369,G3,gold,393,407,DATE,"March 31, 2023",OK
+gretel-test-3369,G4,gold,619,622,CREDENTIAL,400,OK
+gretel-test-3369,M1,model,503,517,DATE,"March 15, 2023",MISSED
+gretel-test-4109,G1,gold,141,156,PERSON,Silvio Spinelli,OK
+gretel-test-4109,G2,gold,215,238,DATE,01/01/2023 - 01/31/2033,OK
+gretel-test-4109,G3,gold,415,425,DATE,01/05/2023,OK
+gretel-test-4109,G4,gold,440,446,ORGANIZATION,Amazon,OK
+gretel-test-4109,G5,gold,471,480,DATE,01/10/202,OK
+gretel-test-4109,G6,gold,518,528,DATE,01/15/2023,OK
+gretel-test-4109,G7,gold,771,781,DATE,09/15/2022,OK
+gretel-test-4109,G8,gold,815,825,DATE,12/15/2022,OK
+gretel-test-417,G1,gold,60,75,ORGANIZATION,GOLDEN OAK INC.,OK
+gretel-test-417,G2,gold,157,194,DATE,"Jan 01, 1990 - Dec 31,  tax year 2021",BOUNDARY
+gretel-test-417,G3,gold,787,799,DATE,"Feb 28, 2022",OK
+gretel-test-417,G4,gold,908,923,ORGANIZATION,Golden Oak Inc.,OK
+gretel-test-417,G5,gold,924,958,ADDRESS,"328 Leafy Lane
+Toronto, ON M3B 2P2",OK
+gretel-test-417,G6,gold,1053,1068,DATE,each full month,NOT_PII
+gretel-test-5495,G1,gold,308,326,PERSON,Michael Jenkins-Yu,OK
+gretel-test-5495,G2,gold,368,396,ADDRESS,"519 Smith Camp, North Austin",OK
+gretel-test-5495,G3,gold,1337,1344,DATE,30 days,NOT_PII
+gretel-test-3966,G1,gold,97,114,PERSON,Isabella G. Volta,OK
+gretel-test-3966,G2,gold,497,507,DATE,modern-day,NOT_PII
+gretel-test-3966,G3,gold,1045,1056,ID_NUMBER,092-43-1951,OK
+gretel-test-3966,G4,gold,1581,1606,ADDRESS,02881 Adam Camp Suite 881,OK
+gretel-test-1824,G1,gold,87,111,DATE,"1st day of January, 2023",OK
+gretel-test-1824,G2,gold,151,167,PERSON,Jason R. Brookes,OK
+gretel-test-1824,G3,gold,213,246,ADDRESS,"9417 Jerry Route, 15836, New Dale",OK
+gretel-test-1824,G4,gold,269,280,FINANCIAL,MZWMDEEA020,OK
+gretel-test-1824,G5,gold,949,987,DATE,each anniversary of the Effective Date,NOT_PII
+gretel-test-1824,G6,gold,1015,1021,DATE,1-year,NOT_PII
+gretel-test-1824,G7,gold,1077,1099,DATE,the first business day,NOT_PII
+gretel-test-1824,G8,gold,1197,1203,DATE,1-year,NOT_PII
+gretel-test-1824,G9,gold,1273,1281,DATE,30 years,NOT_PII
+gretel-test-1824,G10,gold,1331,1338,DATE,monthly,NOT_PII
+gretel-test-1824,G11,gold,1408,1468,DATE,the first day of the month next following the Effective Date,NOT_PII
+gretel-test-1824,G12,gold,1489,1496,DATE,monthly,NOT_PII
+gretel-test-1824,G13,gold,1753,1786,ADDRESS,"9417 Jerry Route, 15836, New Dale",OK
+gretel-test-3805,G1,gold,90,113,DATE,"1st day of August, 2021",OK
+gretel-test-3805,G2,gold,153,174,PERSON,Gina Lawson-Hernandez,OK
+gretel-test-3805,G3,gold,202,217,ADDRESS,8902 Brown Loop,OK
+gretel-test-3805,G4,gold,240,254,PERSON,Anita Schwartz,OK
+gretel-test-3805,G5,gold,279,291,PHONE,518.594.8855,OK
+gretel-test-3805,G6,gold,374,392,ORGANIZATION,franchise business,NOT_PII
+gretel-test-3805,G7,gold,954,968,DATE,a 360-day year,NOT_PII
+gretel-test-3805,G8,gold,1076,1083,DATE,monthly,NOT_PII
+gretel-test-3805,G9,gold,1125,1151,DATE,the first day of the month,NOT_PII
+gretel-test-3805,G10,gold,1213,1240,DATE,the first day of each month,NOT_PII
+gretel-test-3805,G11,gold,1447,1465,ORGANIZATION,franchise business,NOT_PII
+gretel-test-4625,G1,gold,152,175,PERSON,ENGELBERT SCHENK-KRAUSE,OK
+gretel-test-4625,M1,model,50,67,ADDRESS,11116 STARK RIVER,MISSED
+gretel-test-4625,M2,model,69,94,ADDRESS,"APT. 546, 99999 CITYSTATE",MISSED
+gretel-test-4625,M3,model,129,137,DATE,19920317,MISSED
+gretel-test-4625,M4,model,138,146,DATE,19920317,MISSED
+gretel-test-4625,M5,model,213,221,DATE,19920317,MISSED
+gretel-test-4625,M6,model,222,230,DATE,19920317,MISSED
+gretel-test-4625,N1,neither,,,FINANCIAL,1234567890,MISSED
+gretel-test-4625,N2,neither,,,FINANCIAL,9876543210,MISSED
+gretel-test-880,G1,gold,91,118,ORGANIZATION,Alpha Fire Safety Solutions,OK
+gretel-test-880,G2,gold,129,179,ADDRESS,"756 Kingston Road, London, NW6 4NA, United Kingdom",OK
+gretel-test-880,G3,gold,192,208,PHONE,+44 20 7722 1234,OK
+gretel-test-880,G4,gold,218,244,EMAIL,info@alphafiresafety.co.uk,OK
+gretel-test-880,G5,gold,253,279,EMAIL,info@alphafiresafety.co.uk,OK
+gretel-test-4565,G1,gold,85,111,PERSON,Mariana Trevisani-Zetticci,OK
+gretel-test-4565,G2,gold,121,140,EMAIL,ljohnson@garza.info,OK
+gretel-test-4565,G3,gold,149,168,EMAIL,ljohnson@garza.info,OK
+gretel-test-4565,G4,gold,387,394,PERSON,Mariana,OK
+gretel-test-4565,G5,gold,447,456,DATE,yesterday,NOT_PII
+gretel-test-4565,G6,gold,858,865,PERSON,Mariana,OK
+gretel-test-4565,G7,gold,1365,1374,ID_NUMBER,755762760,OK
+gretel-test-4565,G8,gold,1679,1686,PERSON,Mariana,OK
+gretel-test-4565,G9,gold,1903,1928,ORGANIZATION,Software Development Team,NOT_PII
+gretel-test-4565,G10,gold,1964,1979,DATE,3 business days,NOT_PII
+gretel-test-4565,M1,model,142,148,EMAIL,mailto,NOT_PII
+gretel-test-6,G1,gold,1081,1085,DATE,days,NOT_PII
+gretel-test-6,M1,model,165,173,DATE,20210315,MISSED
+gretel-test-6,M2,model,174,176,DATE,15,BOUNDARY
+gretel-test-6,M3,model,177,182,DATE,30:45,BOUNDARY
+gretel-test-6,M4,model,228,236,DATE,20210315,MISSED
+gretel-test-6,M5,model,255,263,DATE,20210315,MISSED
+gretel-test-6,M6,model,778,795,DATE,20210315-15:30:45,MISSED
+gretel-test-6,M7,model,1135,1152,DATE,20210315-16:30:45,MISSED
+gretel-test-1064,M1,model,66,85,URL,http://www.fpml.org,NOT_PII
+gretel-test-1064,M2,model,86,92,URL,FpML-5,NOT_PII
+gretel-test-1064,M3,model,135,176,URL,http://www.w3.org/2001/XMLSchema-instance,NOT_PII
+gretel-test-1064,M4,model,214,233,URL,http://www.fpml.org,NOT_PII
+gretel-test-1064,M5,model,234,254,URL,FpML-5/functionality,NOT_PII
+gretel-test-1064,M6,model,291,341,URL,http://www.fpml.org/schemas/FpML-5-5/functionality,NOT_PII
+gretel-test-1064,M7,model,342,345,URL,xsd,NOT_PII
+gretel-test-1064,M8,model,1115,1125,DATE,2023-06-30,MISSED
+gretel-test-1306,G1,gold,700,718,EMAIL,sbarrett@kelly.com,OK
+gretel-test-1306,G2,gold,836,852,PERSON,Sylvia L. Alonzi,OK
+gretel-test-1306,G3,gold,939,955,PERSON,Sylvia L. Alonzi,OK
+gretel-test-1306,G4,gold,959,999,ADDRESS,"4874 Charles River, 98174, New Bryanport",OK
+gretel-test-1070,G1,gold,189,204,ORGANIZATION,ABC Brokers Ltd,OK
+gretel-test-1070,G2,gold,251,270,ORGANIZATION,XYZ Investment Bank,OK
+gretel-test-1070,M1,model,112,114,DATE,52,NOT_PII
+gretel-test-1070,M2,model,115,136,DATE,20220222-09:30:45.678,MISSED
+gretel-test-1070,M3,model,496,498,DATE,52,NOT_PII
+gretel-test-1070,M4,model,499,520,DATE,20220222-09:30:45.678,MISSED
+gretel-test-256,G1,gold,98,123,DATE,this [Date] day of [Month,NOT_PII
+gretel-test-256,G2,gold,1037,1044,DATE,monthly,NOT_PII
+gretel-test-256,G3,gold,1111,1137,DATE,the same day of each month,NOT_PII
+gretel-test-256,M1,model,343,344,LOCATION,[,NOT_PII
+gretel-test-3894,G1,gold,34,50,PERSON,Andre Kenan Karz,OK
+gretel-test-3894,G2,gold,321,337,PERSON,Andre Kenan Karz,OK
+gretel-test-3894,G3,gold,355,365,DATE,12/09/1963,OK
+gretel-test-3894,G4,gold,384,414,ADDRESS,"83076 Kristen Valley, Apt. 239",OK
+gretel-test-3894,G5,gold,472,479,DATE,Monthly,NOT_PII
+gretel-test-3894,G6,gold,497,504,DATE,Monthly,NOT_PII
+gretel-test-3894,G7,gold,601,616,ORGANIZATION,Karz Solar Farm,OK
+gretel-test-3894,G8,gold,1189,1192,CREDENTIAL,331,OK
+gretel-test-3894,G9,gold,1460,1476,PERSON,Andre Kenan Karz,OK
+gretel-test-3894,G10,gold,1483,1493,DATE,03/12/2023,OK
+gretel-test-144,G1,gold,80,102,ORGANIZATION,Sustainable Bites Fund,OK
+gretel-test-144,G2,gold,590,609,ORGANIZATION,Grand View Research,OK
+gretel-test-144,G3,gold,696,700,DATE,2020,OK
+gretel-test-144,G4,gold,779,791,DATE,2021 to 2028,OK
+gretel-test-144,G5,gold,922,934,DATE,2020 to 2027,OK
+gretel-test-144,G6,gold,1805,1827,ORGANIZATION,Sustainable Bites Fund,OK
+gretel-test-144,N1,neither,,,ORGANIZATION,Fortune Business Insights,MISSED
+gretel-test-144,N2,neither,,,ORGANIZATION,Nielsen,MISSED
+gretel-test-4449,G1,gold,62,95,EMAIL,jenniferanderson@walker-davis.biz,OK
+gretel-test-4449,G2,gold,110,130,PERSON,Jane Jennifer Gaines,OK
+gretel-test-4449,G3,gold,847,858,ID_NUMBER,859-28-5414,OK
+gretel-test-4449,G4,gold,1430,1449,EMAIL,support@company.com,OK
+gretel-test-4449,G5,gold,1465,1480,PHONE,+1-800-123-4567,OK
+gretel-test-4449,G6,gold,1566,1595,ADDRESS,"508 Bryan Fields, Lake Cheryl",OK

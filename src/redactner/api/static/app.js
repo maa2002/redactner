@@ -30,8 +30,6 @@
   };
   const SOURCE_TEXT = {
     model: 'Detected by the model',
-    rule: 'Matched a validated pattern',
-    propagated: 'Repeats a value detected elsewhere',
     deny: 'On your Always Redact list',
     user: 'Added by you',
   };
@@ -53,7 +51,7 @@
     token: '',                   // X-RedactNER-Token from <meta name="redactner-token">
     config: null,                // GET /config (normalised)
     labelInfo: new Map(),        // label -> {name, color, description}
-    options: { detector: '', preset: 'custom', labels: new Set(), threshold: 0.5, mode: 'label' },
+    options: { preset: 'custom', labels: new Set(), threshold: null, mode: 'label' }, // null = tuned thresholds
     view: 'markup',              // markup | redacted | original
     changesOnly: false,
     zoom: 1,
@@ -312,14 +310,14 @@
     return v.replace(/\s+/g, ' ');
   }
 
-  /** fusion._priority: (validated, score, length). */
+  /** detector._priority: (user decision, score, length). */
   function comparePriority(a, b) {
-    const va = ['rule', 'deny', 'user'].includes(a.source) && a.score >= 0.95 ? 1 : 0;
-    const vb = ['rule', 'deny', 'user'].includes(b.source) && b.score >= 0.95 ? 1 : 0;
+    const va = ['deny', 'user'].includes(a.source) ? 1 : 0;
+    const vb = ['deny', 'user'].includes(b.source) ? 1 : 0;
     return (va - vb) || (a.score - b.score) || ((a.end - a.start) - (b.end - b.start));
   }
 
-  /** fusion.resolve_overlaps: union of overlapping spans, label from the strongest member. */
+  /** detector.resolve_overlaps: union of overlapping spans, label from the strongest member. */
   function resolveOverlaps(spans) {
     const ordered = [...spans].sort((a, b) => a.uStart - b.uStart || b.uEnd - a.uEnd);
     const clusters = [];
@@ -376,7 +374,6 @@
     c.labels = (Array.isArray(c.labels) ? c.labels : []).filter((l) => l && l.name).map((l) => Object.assign({}, l, { name: String(l.name) }));
     c.presets = c.presets && typeof c.presets === 'object' ? c.presets : {};
     c.modes = Array.isArray(c.modes) && c.modes.length ? c.modes : [{ id: 'label', name: 'Labels' }];
-    c.detectors = Array.isArray(c.detectors) && c.detectors.length ? c.detectors : [{ id: 'hybrid', name: 'RedactNER (model + rules)' }];
     return c;
   }
 
@@ -393,14 +390,6 @@
     return 'custom';
   }
 
-  function detectorName(d) {
-    const id = String(d.id);
-    if (id === 'hybrid') return 'Model + Rules';
-    if (id === 'model') return 'Model Only';
-    if (id === 'rules') return 'Rules Only';
-    return titleCase(d.name || id);
-  }
-
   function modeTitle(mode) {
     if (MODE_INFO[mode.id]) return MODE_INFO[mode.id][0];
     return titleCase(String(mode.name || mode.id).replace(/\s*\(.*\)\s*$/, ''));
@@ -410,11 +399,6 @@
     const cfg = state.config;
     state.labelInfo = new Map(cfg.labels.map((l) => [l.name, l]));
 
-    fillSelect(ui.detector, cfg.detectors.map((d) => [String(d.id), detectorName(d)]));
-    const ids = cfg.detectors.map((d) => String(d.id));
-    state.options.detector = ids.includes(cfg.default_detector) ? cfg.default_detector : ids[0];
-    ui.detector.value = state.options.detector;
-
     const presets = Object.keys(cfg.presets).filter((n) => presetLabels(n));
     fillSelect(ui.preset, presets.map((n) => [n, titleCase(n)]).concat([['custom', 'Custom']]));
     state.options.labels = new Set(presetLabels(cfg.default_preset) || cfg.labels.filter((l) => l.default_on).map((l) => l.name));
@@ -422,15 +406,14 @@
     ui.preset.value = state.options.preset;
     renderTypesGrid();
 
-    const t = clamp(round2(Number(cfg.default_threshold) || 0.5), 0.01, 0.95);
-    state.options.threshold = t;
-    ui.confidence.value = String(t);
-    ui.confidenceValue.textContent = t.toFixed(2);
+    state.options.threshold = null;
+    ui.confidence.value = String(defaultConfidence());
+    showConfidence();
 
     renderModes(cfg.modes);
     fillSelect(ui.selLabel, cfg.labels.map((l) => [l.name, humanLabel(l.name)]));
     if (cfg.max_upload_mb) ui.maxMb.textContent = String(cfg.max_upload_mb);
-    for (const control of [ui.detector, ui.preset, ui.confidence]) control.disabled = false;
+    for (const control of [ui.preset, ui.confidence]) control.disabled = false;
   }
 
   function renderTypesGrid() {
@@ -479,7 +462,6 @@
 
   function buildAnalyzeRequest() {
     return {
-      detector: state.options.detector,
       labels: orderedLabelNames(state.options.labels),
       threshold: state.options.threshold,
       deny_terms: parseTerms(ui.denyTerms.value),
@@ -534,10 +516,27 @@
     optionsChanged();
   }
 
+  function defaultConfidence() {
+    return clamp(round2(Number(state.config && state.config.default_threshold) || 0.5), 0.01, 0.95);
+  }
+
+  /** The slider shows "Tuned" until it is moved: the model then applies the thresholds tuned on held-out data. */
+  function showConfidence() {
+    const tuned = state.options.threshold === null;
+    ui.confidenceValue.textContent = tuned ? 'Tuned' : state.options.threshold.toFixed(2);
+    ui.confidenceReset.hidden = tuned;
+  }
+
   function onConfidenceInput() {
-    const v = round2(Number(ui.confidence.value));
-    state.options.threshold = v;
-    ui.confidenceValue.textContent = v.toFixed(2);
+    state.options.threshold = round2(Number(ui.confidence.value));
+    showConfidence();
+    optionsChanged();
+  }
+
+  function onConfidenceReset() {
+    state.options.threshold = null;
+    ui.confidence.value = String(defaultConfidence());
+    showConfidence();
     optionsChanged();
   }
 
@@ -1757,9 +1756,9 @@
       paneReport: 'pane-report', residual: 'residual', residualValue: 'residual-value', reportStale: 'report-stale',
       reportStats: 'report-stats', reportMeta: 'report-meta', reportWarnWrap: 'report-warn-wrap', reportWarnings: 'report-warnings',
       btnDownloadAgain: 'btn-download-again', paneDoc: 'pane-doc', docStats: 'doc-stats', docWarnings: 'doc-warnings',
-      settingsForm: 'settings-form', detector: 'detector', preset: 'preset',
+      settingsForm: 'settings-form', preset: 'preset',
       typesCount: 'types-count', typesAll: 'types-all', typesNone: 'types-none', typesGrid: 'types-grid',
-      confidence: 'confidence', confidenceValue: 'confidence-value', modeGroup: 'mode-group',
+      confidence: 'confidence', confidenceValue: 'confidence-value', confidenceReset: 'confidence-reset', modeGroup: 'mode-group',
       denyTerms: 'deny-terms', denyCount: 'deny-count', allowTerms: 'allow-terms', allowCount: 'allow-count',
       statusCounts: 'status-counts', statusText: 'status-text', statusResidual: 'status-residual',
       statusModel: 'status-model', statusModelText: 'status-model-text', zoom: 'zoom',
@@ -1811,12 +1810,12 @@
 
     // settings (every change re-analyses automatically)
     ui.settingsForm.addEventListener('submit', (e) => e.preventDefault());
-    ui.detector.addEventListener('change', () => { state.options.detector = ui.detector.value; optionsChanged(); });
     ui.preset.addEventListener('change', onPresetChange);
     ui.typesGrid.addEventListener('change', onTypeToggle);
     ui.typesAll.addEventListener('click', () => setLabels(state.config ? state.config.labels.map((l) => l.name) : []));
     ui.typesNone.addEventListener('click', () => setLabels([]));
     ui.confidence.addEventListener('input', onConfidenceInput);
+    ui.confidenceReset.addEventListener('click', onConfidenceReset);
     ui.modeGroup.addEventListener('change', onModeChange);
     ui.denyTerms.addEventListener('input', optionsChanged);
     ui.allowTerms.addEventListener('input', optionsChanged);

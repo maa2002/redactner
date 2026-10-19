@@ -1,0 +1,201 @@
+{
+  "splits": [
+    {
+      "Split": "Training",
+      "Documents": 63000,
+      "Entities": 397716,
+      "Mean Characters": 828,
+      "PII Characters (%)": 12.04,
+      "Documents Without PII (%)": 1.6
+    },
+    {
+      "Split": "Development",
+      "Documents": 2750,
+      "Entities": 16752,
+      "Mean Characters": 914,
+      "PII Characters (%)": 11.07,
+      "Documents Without PII (%)": 1.7
+    },
+    {
+      "Split": "Nemotron-PII Test",
+      "Documents": 1000,
+      "Entities": 6414,
+      "Mean Characters": 949,
+      "PII Characters (%)": 11.33,
+      "Documents Without PII (%)": 0.0
+    },
+    {
+      "Split": "ai4privacy Test",
+      "Documents": 1000,
+      "Entities": 5413,
+      "Mean Characters": 369,
+      "PII Characters (%)": 22.36,
+      "Documents Without PII (%)": 0.7
+    },
+    {
+      "Split": "Gretel Finance Test",
+      "Documents": 1000,
+      "Entities": 6521,
+      "Mean Characters": 1430,
+      "PII Characters (%)": 7.61,
+      "Documents Without PII (%)": 6.5
+    },
+    {
+      "Split": "TAB Test",
+      "Documents": 127,
+      "Entities": 5338,
+      "Mean Characters": 5100,
+      "PII Characters (%)": 11.74,
+      "Documents Without PII (%)": 0.0
+    }
+  ],
+  "training_sources": [
+    {
+      "Source": "Nemotron-PII",
+      "Training Documents": 30000
+    },
+    {
+      "Source": "ai4privacy OpenPII",
+      "Training Documents": 20000
+    },
+    {
+      "Source": "Gretel Finance",
+      "Training Documents": 10000
+    },
+    {
+      "Source": "Synthetic Forms",
+      "Training Documents": 3000
+    }
+  ],
+  "entities_per_category": {
+    "Training": {
+      "Person": 59766,
+      "Email": 29926,
+      "Phone": 20509,
+      "Address": 32470,
+      "Location": 30002,
+      "Date": 71101,
+      "ID Number": 56201,
+      "Financial": 20987,
+      "Username": 4807,
+      "Credential": 11717,
+      "IP Address": 7421,
+      "URL": 14421,
+      "Organisation": 38388
+    },
+    "Development": {
+      "Person": 2492,
+      "Email": 1293,
+      "Phone": 883,
+      "Address": 1296,
+      "Location": 1192,
+      "Date": 3145,
+      "ID Number": 2232,
+      "Financial": 792,
+      "Username": 170,
+      "Credential": 467,
+      "IP Address": 258,
+      "URL": 666,
+      "Organisation": 1866
+    },
+    "Nemotron-PII Test": {
+      "Person": 937,
+      "Email": 564,
+      "Phone": 327,
+      "Address": 214,
+      "Location": 514,
+      "Date": 1084,
+      "ID Number": 874,
+      "Financial": 404,
+      "Username": 171,
+      "Credential": 285,
+      "IP Address": 139,
+      "URL": 371,
+      "Organisation": 530
+    },
+    "ai4privacy Test": {
+      "Person": 1001,
+      "Email": 554,
+      "Phone": 435,
+      "Address": 758,
+      "Location": 518,
+      "Date": 903,
+      "ID Number": 988,
+      "Financial": 256,
+      "Username": 0,
+      "Credential": 0,
+      "IP Address": 0,
+      "URL": 0,
+      "Organisation": 0
+    },
+    "Gretel Finance Test": {
+      "Person": 1550,
+      "Email": 355,
+      "Phone": 190,
+      "Address": 795,
+      "Location": 24,
+      "Date": 1910,
+      "ID Number": 139,
+      "Financial": 169,
+      "Username": 12,
+      "Credential": 101,
+      "IP Address": 67,
+      "URL": 0,
+      "Organisation": 1209
+    },
+    "TAB Test": {
+      "Person": 1037,
+      "Email": 0,
+      "Phone": 0,
+      "Address": 0,
+      "Location": 451,
+      "Date": 2551,
+      "ID Number": 339,
+      "Financial": 0,
+      "Username": 0,
+      "Credential": 0,
+      "IP Address": 0,
+      "URL": 0,
+      "Organisation": 960
+    }
+  },
+  "deduplication": [
+    {
+      "Test Set": "Nemotron-PII Test",
+      "Exact Duplicates Removed": 0,
+      "Candidates Checked": 1500,
+      "Near-Duplicates Removed": 0,
+      "Documents Kept": 1000,
+      "Template Seen in Training (%)": 0.0
+    },
+    {
+      "Test Set": "ai4privacy Test",
+      "Exact Duplicates Removed": 1,
+      "Candidates Checked": 1299,
+      "Near-Duplicates Removed": 0,
+      "Documents Kept": 1000,
+      "Template Seen in Training (%)": 0.0
+    },
+    {
+      "Test Set": "Gretel Finance Test",
+      "Exact Duplicates Removed": 8,
+      "Candidates Checked": 1300,
+      "Near-Duplicates Removed": 0,
+      "Documents Kept": 1000,
+      "Template Seen in Training (%)": 0.6
+    },
+    {
+      "Test Set": "TAB Test",
+      "Exact Duplicates Removed": 0,
+      "Candidates Checked": 127,
+      "Near-Duplicates Removed": 0,
+      "Documents Kept": 127,
+      "Template Seen in Training (%)": 0.0
+    }
+  ],
+  "augmentation": {
+    "Australian Values": 12020,
+    "Name Casing": 2460,
+    "Synthetic Forms": 3000
+  }
+}

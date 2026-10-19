@@ -1,0 +1,170 @@
+{
+  "gretel_audit": {
+    "Gold spans that are not personal information (%)": 16.78,
+    "Gold spans with a wrong extent or category (%)": 5.59,
+    "Estimated share of the documents' PII that the gold marks (%)": 78.82,
+    "Model-only predictions that are real PII (%)": 59.38
+  },
+  "gretel_audit_counts": {
+    "OK": {
+      "Gold Spans": 236,
+      "Model-Only Predictions": 0,
+      "Marked by Neither": 0
+    },
+    "Boundary": {
+      "Gold Spans": 9,
+      "Model-Only Predictions": 5,
+      "Marked by Neither": 0
+    },
+    "Label": {
+      "Gold Spans": 8,
+      "Model-Only Predictions": 0,
+      "Marked by Neither": 0
+    },
+    "Not PII": {
+      "Gold Spans": 51,
+      "Model-Only Predictions": 34,
+      "Marked by Neither": 0
+    },
+    "Missed": {
+      "Gold Spans": 0,
+      "Model-Only Predictions": 57,
+      "Marked by Neither": 11
+    },
+    "Total": {
+      "Gold Spans": 304,
+      "Model-Only Predictions": 96,
+      "Marked by Neither": 11
+    }
+  },
+  "gretel_rescored": {
+    "Original Annotation": {
+      "Char Precision": 0.702,
+      "Char Recall": 0.99,
+      "Leak Rate (%)": 1.645,
+      "Direct Leak Rate (%)": 1.351,
+      "Gold Mentions": 304.0
+    },
+    "Corrected Annotation": {
+      "Char Precision": 0.68,
+      "Char Recall": 0.879,
+      "Leak Rate (%)": 16.619,
+      "Direct Leak Rate (%)": 17.91,
+      "Gold Mentions": 349.0
+    }
+  },
+  "leaks_by_category": {
+    "Nemotron-PII": {
+      "Person": "1 (0.1 %)",
+      "Email": "1 (0.2 %)",
+      "Phone": "0",
+      "Address": "0",
+      "Location": "9 (1.8 %)",
+      "Date": "12 (1.1 %)",
+      "ID Number": "0",
+      "Financial": "0",
+      "Username": "0",
+      "Credential": "1 (0.4 %)",
+      "IP Address": "0",
+      "URL": "0",
+      "Organisation": "2 (0.4 %)"
+    },
+    "ai4privacy OpenPII": {
+      "Person": "1 (0.1 %)",
+      "Email": "0",
+      "Phone": "0",
+      "Address": "2 (0.3 %)",
+      "Location": "2 (0.4 %)",
+      "Date": "0",
+      "ID Number": "0",
+      "Financial": "0",
+      "Username": "",
+      "Credential": "",
+      "IP Address": "",
+      "URL": "",
+      "Organisation": ""
+    },
+    "Gretel Finance": {
+      "Person": "27 (1.7 %)",
+      "Email": "2 (0.6 %)",
+      "Phone": "0",
+      "Address": "15 (1.9 %)",
+      "Location": "0",
+      "Date": "33 (1.7 %)",
+      "ID Number": "0",
+      "Financial": "1 (0.6 %)",
+      "Username": "0",
+      "Credential": "3 (3.0 %)",
+      "IP Address": "20 (29.9 %)",
+      "URL": "",
+      "Organisation": "45 (3.7 %)"
+    },
+    "TAB": {
+      "Person": "55 (4.9 %)",
+      "Email": "",
+      "Phone": "",
+      "Address": "",
+      "Location": "199 (37.3 %)",
+      "Date": "152 (5.5 %)",
+      "ID Number": "226 (63.1 %)",
+      "Financial": "",
+      "Username": "",
+      "Credential": "",
+      "IP Address": "",
+      "URL": "",
+      "Organisation": "437 (39.8 %)"
+    }
+  },
+  "tab_threshold_sensitivity": [
+    {
+      "\u03c4": "0.97 (exported)",
+      "TAB Direct Leak Rate (%)": 21.548,
+      "TAB Person Leak Rate (%)": 3.142,
+      "TAB ID Number Leak Rate (%)": 68.797,
+      "TAB Entity Recall, Direct": 0.872,
+      "TAB Word Precision": 0.678,
+      "Development Char Precision": 0.894,
+      "Development Leak Rate (%)": 0.579
+    },
+    {
+      "\u03c4": "0.98",
+      "TAB Direct Leak Rate (%)": 18.661,
+      "TAB Person Leak Rate (%)": 2.513,
+      "TAB ID Number Leak Rate (%)": 60.112,
+      "TAB Entity Recall, Direct": 0.929,
+      "TAB Word Precision": 0.655,
+      "Development Char Precision": 0.876,
+      "Development Leak Rate (%)": 0.478
+    },
+    {
+      "\u03c4": "0.99",
+      "TAB Direct Leak Rate (%)": 15.704,
+      "TAB Person Leak Rate (%)": 1.257,
+      "TAB ID Number Leak Rate (%)": 52.792,
+      "TAB Entity Recall, Direct": 0.97,
+      "TAB Word Precision": 0.61,
+      "Development Char Precision": 0.838,
+      "Development Leak Rate (%)": 0.304
+    },
+    {
+      "\u03c4": "0.995",
+      "TAB Direct Leak Rate (%)": 13.635,
+      "TAB Person Leak Rate (%)": 0.749,
+      "TAB ID Number Leak Rate (%)": 46.712,
+      "TAB Entity Recall, Direct": 0.988,
+      "TAB Word Precision": 0.562,
+      "Development Char Precision": 0.796,
+      "Development Leak Rate (%)": 0.251
+    },
+    {
+      "\u03c4": "0.999",
+      "TAB Direct Leak Rate (%)": 0.139,
+      "TAB Person Leak Rate (%)": 0.097,
+      "TAB ID Number Leak Rate (%)": 0.248,
+      "TAB Entity Recall, Direct": 1.0,
+      "TAB Word Precision": 0.453,
+      "Development Char Precision": 0.675,
+      "Development Leak Rate (%)": 0.131
+    }
+  ]
+}

@@ -60,20 +60,20 @@
   var KEY = { marks: [['*', 'b']] }; // whole-cell bold
 
   var TEXTBOX = 'Available from 1 December. Call Jane on 0400 123 456.';
-  var TEXTBOX_ENTS = [['Jane', 'PERSON', 0.9, 'propagated'], ['0400 123 456', 'PHONE', 1.0, 'rule'], ['1 December', 'DATE', 0.58, 'model']];
+  var TEXTBOX_ENTS = [['Jane', 'PERSON', 0.9, 'model'], ['0400 123 456', 'PHONE', 1.0, 'model'], ['1 December', 'DATE', 0.58, 'model']];
 
   var DOC = [
-    seg('header', P_HDR, 'Jane Citizen · Curriculum Vitae', { align: 'right', ents: [['Jane Citizen', 'PERSON', 0.9, 'propagated']] }),
+    seg('header', P_HDR, 'Jane Citizen · Curriculum Vitae', { align: 'right', ents: [['Jane Citizen', 'PERSON', 0.9, 'model']] }),
     seg('body', P_DOC, 'Jane Citizen', { style: 'Title', align: 'center', ents: [['Jane Citizen', 'PERSON', 0.998, 'model']] }),
     seg('body', P_DOC, 'Senior Data Analyst', { style: 'Subtitle', align: 'center' }),
     seg('body', P_DOC, '📧 jane.citizen@example.com · 📞 +61 412 345 678 · linkedin.com/in/janecitizen', {
       align: 'center',
-      ents: [['jane.citizen@example.com', 'EMAIL', 1.0, 'rule'], ['+61 412 345 678', 'PHONE', 1.0, 'rule'], ['linkedin.com/in/janecitizen', 'URL', 0.97, 'rule']]
+      ents: [['jane.citizen@example.com', 'EMAIL', 1.0, 'model'], ['+61 412 345 678', 'PHONE', 1.0, 'model'], ['linkedin.com/in/janecitizen', 'URL', 0.97, 'model']]
     }),
     seg('body', P_DOC, 'Profile', { style: 'Heading1' }),
     seg('body', P_DOC, 'Data analyst with five years of experience at Atlassian and the Commonwealth Bank. Jane enjoys turning messy spreadsheets into clear decisions.', {
       align: 'both', marks: [['five years', 'b'], ['clear decisions', 'i']],
-      ents: [['Atlassian', 'ORGANIZATION', 0.88, 'model'], ['Commonwealth Bank', 'ORGANIZATION', 0.81, 'model'], ['Jane', 'PERSON', 0.9, 'propagated']]
+      ents: [['Atlassian', 'ORGANIZATION', 0.88, 'model'], ['Commonwealth Bank', 'ORGANIZATION', 0.81, 'model'], ['Jane', 'PERSON', 0.9, 'model']]
     }),
     seg('body', P_DOC, 'Experience', { style: 'Heading1' }),
     seg('body', P_DOC, 'Senior Data Analyst, Atlassian, Sydney', {
@@ -86,7 +86,7 @@
     }),
     seg('body', P_DOC, 'Admin access to the reporting server 10.24.8.17 (password: Tr0ub4dor&3) was handed over in March.', {
       style: 'ListParagraph', list: true, marks: [['Tr0ub4dor&3', 'u']],
-      ents: [['10.24.8.17', 'IP_ADDRESS', 1.0, 'rule'], ['Tr0ub4dor&3', 'CREDENTIAL', 0.71, 'model'], ['March', 'DATE', 0.22, 'model']]
+      ents: [['10.24.8.17', 'IP_ADDRESS', 1.0, 'model'], ['Tr0ub4dor&3', 'CREDENTIAL', 0.71, 'model'], ['March', 'DATE', 0.22, 'model']]
     }),
     seg('body', P_DOC, 'Mentored two graduates and ran the internal analytics guild.', { style: 'ListParagraph', list: true }),
     seg('body', P_DOC, 'Personal Details', { style: 'Heading1' }),
@@ -95,27 +95,27 @@
     cell(1, 0, 'Date of Birth', KEY),
     cell(1, 1, '14/03/1996', { ents: [['14/03/1996', 'DATE', 0.97, 'model']] }),
     cell(2, 0, 'Bank Account', KEY),
-    cell(2, 1, 'BSB 062-000, account 1234 5678', { ents: [['062-000', 'FINANCIAL', 0.99, 'rule'], ['1234 5678', 'FINANCIAL', 0.91, 'model']] }),
+    cell(2, 1, 'BSB 062-000, account 1234 5678', { ents: [['062-000', 'FINANCIAL', 0.99, 'model'], ['1234 5678', 'FINANCIAL', 0.91, 'model']] }),
     cell(3, 0, 'Tax File Number', KEY),
-    cell(3, 1, '123 456 782', { ents: [['123 456 782', 'ID_NUMBER', 1.0, 'rule']] }),
+    cell(3, 1, '123 456 782', { ents: [['123 456 782', 'ID_NUMBER', 1.0, 'model']] }),
     cell(4, 0, 'Driver Licence', KEY), // (4, 1) intentionally missing → the UI fills the empty cell
     seg('body', P_DOC, 'Referees', { style: 'Heading1' }),
     seg('body', P_DOC, 'Dr Michael Okafor, University of Technology Sydney · m.okafor@uts.edu.au · (02) 9514 2000', {
       marks: [['Dr Michael Okafor', 'b']],
       ents: [['Michael Okafor', 'PERSON', 0.97, 'model'], ['University of Technology Sydney', 'ORGANIZATION', 0.66, 'model'],
-        ['m.okafor@uts.edu.au', 'EMAIL', 1.0, 'rule'], ['(02) 9514 2000', 'PHONE', 1.0, 'rule']]
+        ['m.okafor@uts.edu.au', 'EMAIL', 1.0, 'model'], ['(02) 9514 2000', 'PHONE', 1.0, 'model']]
     }),
     seg('textbox', P_DOC, TEXTBOX, { marks: [['Available from 1 December.', 'b']], ents: TEXTBOX_ENTS }),
     seg('textbox', P_DOC, TEXTBOX, { hidden: true, ents: TEXTBOX_ENTS }), // VML fallback copy of the same text box
     seg('footnote', P_FN, 'Referee details shared with Michael Okafor’s consent on 02/10/2026.', {
-      ents: [['Michael Okafor', 'PERSON', 0.9, 'propagated'], ['02/10/2026', 'DATE', 0.55, 'model']]
+      ents: [['Michael Okafor', 'PERSON', 0.9, 'model'], ['02/10/2026', 'DATE', 0.55, 'model']]
     }),
     seg('footer', P_FTR, 'Jane Citizen · Curriculum Vitae · Confidential', {
-      align: 'center', ents: [['Jane Citizen', 'PERSON', 0.9, 'propagated']]
+      align: 'center', ents: [['Jane Citizen', 'PERSON', 0.9, 'model']]
     }),
     seg('comment', P_CMT, 'Michael, can you confirm Jane’s start date at Atlassian? Call me on 0400 123 456.', {
       author: 'Sam Lee',
-      ents: [['Michael', 'PERSON', 0.9, 'propagated'], ['Jane', 'PERSON', 0.9, 'propagated'], ['Atlassian', 'ORGANIZATION', 0.84, 'model'], ['0400 123 456', 'PHONE', 1.0, 'rule']]
+      ents: [['Michael', 'PERSON', 0.9, 'model'], ['Jane', 'PERSON', 0.9, 'model'], ['Atlassian', 'ORGANIZATION', 0.84, 'model'], ['0400 123 456', 'PHONE', 1.0, 'model']]
     }),
     seg('comment', P_CMT, 'Please remove my surname before this goes to the agency.', { author: 'Priya Raman' })
   ];
@@ -176,15 +176,10 @@
       presets: PRESETS,
       default_preset: 'strict',
       modes: [{ id: 'label', name: 'Labels ([PERSON_1])' }, { id: 'mask', name: 'Black-out (█████)' }],
-      detectors: [
-        { id: 'hybrid', name: 'RedactNER (model + rules)' },
-        { id: 'model', name: 'Model only' },
-        { id: 'rules', name: 'Rules only' }
-      ],
-      default_detector: 'hybrid',
       default_threshold: 0.5,
+      tuned_thresholds: false,
       max_upload_mb: 20,
-      model: { name: 'modernbert-base', device: 'cuda' }
+      model: { name: 'DeBERTa-v3-base', device: 'cuda' }
     };
   }
 
@@ -218,7 +213,6 @@
 
   function detectAll(req) {
     var wanted = new Set(req.labels || []);
-    var detector = req.detector || 'hybrid';
     var threshold = req.threshold === undefined || req.threshold === null ? 0.5 : Number(req.threshold);
     var allow = new Set((req.allow_terms || []).map(function (t) { return String(t).trim().toLowerCase(); }).filter(Boolean));
     var candidates = [];
@@ -230,9 +224,7 @@
         var n = seen[surface] || 0;
         seen[surface] = n + 1;
         if (!wanted.has(label)) return;
-        if (detector === 'rules' && source !== 'rule') return;
-        if (detector === 'model' && source !== 'model') return;
-        if (source !== 'rule' && score < threshold) return;
+        if (score < threshold) return;
         if (allow.has(surface.toLowerCase())) return;
         var u = -1;
         for (var k = 0; k <= n; k++) { u = s.text.indexOf(surface, u + 1); if (u < 0) return; }
@@ -281,7 +273,6 @@
     if (req.labels !== undefined && req.labels !== null && !Array.isArray(req.labels)) return fail(422, 'invalid request fields: labels');
     var unknown = (req.labels || []).filter(function (l) { return LABEL_NAMES.indexOf(l) < 0; });
     if (unknown.length) return fail(422, 'unknown PII type(s): ' + unknown.join(', '));
-    if (req.detector && ['hybrid', 'model', 'rules'].indexOf(req.detector) < 0) return fail(422, 'unknown detector: ' + req.detector);
     if (req.threshold !== undefined && req.threshold !== null && !(req.threshold >= 0.01 && req.threshold <= 0.99)) {
       return fail(422, 'invalid request fields: threshold');
     }

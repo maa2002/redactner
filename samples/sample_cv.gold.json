@@ -1,0 +1,97 @@
+[
+  {
+    "value": "Deanna Jennings",
+    "label": "PERSON",
+    "location": "header"
+  },
+  {
+    "value": "Deanna Jennings",
+    "label": "PERSON",
+    "location": "body"
+  },
+  {
+    "value": "Deanna Jennings",
+    "label": "PERSON",
+    "location": "table"
+  },
+  {
+    "value": "Jennings",
+    "label": "PERSON",
+    "location": "body"
+  },
+  {
+    "value": "Deanna",
+    "label": "PERSON",
+    "location": "comment"
+  },
+  {
+    "value": "deanna.jennings@example.com",
+    "label": "EMAIL",
+    "location": "footer"
+  },
+  {
+    "value": "deanna.jennings@example.com",
+    "label": "EMAIL",
+    "location": "table"
+  },
+  {
+    "value": "deanna.jennings@example.com",
+    "label": "EMAIL",
+    "location": "body"
+  },
+  {
+    "value": "0443 397 801",
+    "label": "PHONE",
+    "location": "footer"
+  },
+  {
+    "value": "0443 397 801",
+    "label": "PHONE",
+    "location": "table"
+  },
+  {
+    "value": "02/01/1973",
+    "label": "DATE",
+    "location": "table"
+  },
+  {
+    "value": "2 Chad Drive, Anthonyberg ACT 2821",
+    "label": "ADDRESS",
+    "location": "table"
+  },
+  {
+    "value": "232 322 182",
+    "label": "ID_NUMBER",
+    "location": "table"
+  },
+  {
+    "value": "3406 29044 3",
+    "label": "ID_NUMBER",
+    "location": "table"
+  },
+  {
+    "value": "062-892",
+    "label": "FINANCIAL",
+    "location": "table"
+  },
+  {
+    "value": "45225488",
+    "label": "FINANCIAL",
+    "location": "table"
+  },
+  {
+    "value": "Savage Analytics Pty Ltd",
+    "label": "ORGANIZATION",
+    "location": "body"
+  },
+  {
+    "value": "Michael Atkinson",
+    "label": "PERSON",
+    "location": "comment_author"
+  },
+  {
+    "value": "Charlene Hall",
+    "label": "PERSON",
+    "location": "metadata"
+  }
+]

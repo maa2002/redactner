@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="redactner-token" content="__REDACTNER_TOKEN__">
+  <title>RedactNER</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/mock.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ Top bar ============ -->
+  <header class="topbar">
+    <div class="tb-left">
+      <span class="brand-name">RedactNER</span>
+      <span class="tb-divider" aria-hidden="true"></span>
+      <span class="doc-chip">
+        <svg class="doc-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path></svg>
+        <span id="doc-title" class="doc-title is-empty">No Document</span>
+      </span>
+      <span id="tb-updating" class="tb-updating" role="status" hidden><span class="spinner" aria-hidden="true"></span><span class="tb-updating-text">Updating…</span></span>
+      <span id="mock-badge" class="mock-badge" tabindex="0" hidden
+            data-tip-title="Mock Backend" data-tip="Sample data is served inside the browser; nothing is sent to a server.">Mock</span>
+    </div>
+
+    <div class="tb-center">
+      <div class="segmented view-switch" role="radiogroup" aria-label="View">
+        <label class="seg-opt" data-tip-title="Markup" data-tip="Show every change as tracked: the original struck through, followed by its replacement.">
+          <input type="radio" name="view" value="markup" checked><span>Markup</span>
+        </label>
+        <label class="seg-opt" data-tip-title="Redacted" data-tip="Preview the document exactly as it will be saved.">
+          <input type="radio" name="view" value="redacted"><span>Redacted</span>
+        </label>
+        <label class="seg-opt" data-tip-title="Original" data-tip="Show the document without any changes.">
+          <input type="radio" name="view" value="original"><span>Original</span>
+        </label>
+      </div>
+      <label class="view-select-wrap">
+        <span class="visually-hidden">View</span>
+        <select id="view-select" class="view-select">
+          <option value="markup">Markup</option>
+          <option value="redacted">Redacted</option>
+          <option value="original">Original</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="tb-right">
+      <button id="btn-file" type="button" class="tb-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="file-menu" aria-label="File"
+              data-tip-title="File" data-tip="Open a document or start over.">
+        <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"></path></svg>
+        <span class="tb-btn-text">File</span>
+        <svg class="chev" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+      <button id="btn-settings" type="button" class="tb-btn tb-icon" aria-controls="inspector" aria-expanded="false" aria-pressed="false" aria-label="Settings"
+              data-tip-title="Settings" data-tip="Choose what to detect and how it is redacted.">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.6a1.7 1.7 0 0 1 3.4 0 1.7 1.7 0 0 0 2.6 1.1 1.7 1.7 0 0 1 2.4 2.4 1.7 1.7 0 0 0 1.1 2.6 1.7 1.7 0 0 1 0 3.4 1.7 1.7 0 0 0-1.1 2.6 1.7 1.7 0 0 1-2.4 2.4 1.7 1.7 0 0 0-2.6 1.1 1.7 1.7 0 0 1-3.4 0 1.7 1.7 0 0 0-2.6-1.1 1.7 1.7 0 0 1-2.4-2.4 1.7 1.7 0 0 0-1.1-2.6 1.7 1.7 0 0 1 0-3.4 1.7 1.7 0 0 0 1.1-2.6 1.7 1.7 0 0 1 2.4-2.4 1.7 1.7 0 0 0 2.6-1.1z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      </button>
+      <button id="btn-redact" type="button" class="btn btn-primary tb-primary" disabled
+              data-tip-title="Redact &amp; Download" data-tip="Apply every redaction, run a final leak check and save the redacted copy.">
+        <span class="spinner" aria-hidden="true" hidden></span>
+        <svg class="btn-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"></path></svg>
+        <span class="btn-text">Redact &amp; Download</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============ Workspace ============ -->
+  <div class="workspace">
+    <main id="canvas" class="canvas" aria-label="Document">
+      <div id="progress" class="progress" hidden><span></span></div>
+
+      <section id="empty-state" class="sheet sheet-empty" aria-labelledby="empty-title">
+        <div class="page page-blank">
+          <div id="drop-target" class="drop-target" role="button" tabindex="0" aria-describedby="drop-note">
+            <h1 id="empty-title" class="drop-title">Open A Word Document</h1>
+            <p class="drop-sub">Drop A .docx File Anywhere On The Page</p>
+            <div class="drop-actions">
+              <button id="empty-open" type="button" class="btn btn-primary">Choose Document</button>
+              <button id="empty-sample" type="button" class="btn" hidden>Load Sample Document</button>
+            </div>
+            <p id="drop-note" class="drop-note">Up To <span id="max-mb">20</span> MB · Processed On This Computer</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="loading-state" class="sheet" hidden aria-live="polite">
+        <div class="page page-loading">
+          <div class="loading-label"><span class="spinner" aria-hidden="true"></span><span id="loading-text">Reading Document…</span><button id="loading-retry" type="button" class="btn btn-sm" hidden>Retry</button></div>
+          <div class="skeleton sk-title"></div>
+          <div class="skeleton sk-line"></div>
+          <div class="skeleton sk-line sk-80"></div>
+          <div class="skeleton sk-line sk-90"></div>
+          <div class="skeleton sk-line sk-60"></div>
+          <div class="skeleton sk-line"></div>
+          <div class="skeleton sk-line sk-70"></div>
+        </div>
+      </section>
+
+      <div id="pages" class="pages view-markup" hidden></div>
+    </main>
+
+    <!-- ============ Inspector ============ -->
+    <aside id="inspector" class="inspector" aria-label="Inspector">
+      <div class="insp-head">
+        <div class="tabs" role="tablist" aria-label="Inspector">
+          <button id="tab-changes" type="button" role="tab" class="tab" aria-selected="true" aria-controls="panel-changes">
+            Changes <span id="changes-count" class="tab-count" hidden>0</span>
+          </button>
+          <button id="tab-settings" type="button" role="tab" class="tab" aria-selected="false" aria-controls="panel-settings" tabindex="-1">Settings</button>
+        </div>
+        <button id="btn-insp-close" type="button" class="icon-btn" aria-label="Close Inspector">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+        </button>
+      </div>
+
+      <!-- Changes tab -->
+      <div id="panel-changes" class="insp-panel" role="tabpanel" aria-labelledby="tab-changes" tabindex="0">
+        <p id="pane-empty" class="pane-empty">Open a document to see what will be redacted.</p>
+
+        <section id="pane-report" class="pane-section" hidden aria-labelledby="report-title">
+          <h3 id="report-title" class="pane-h">Redaction Report</h3>
+          <div id="residual" class="residual" role="status">
+            <span class="residual-icon" aria-hidden="true"></span>
+            <div>
+              <div class="residual-cap">Residual Scan</div>
+              <div id="residual-value" class="residual-value">0 Leaks</div>
+            </div>
+          </div>
+          <p id="report-stale" class="pane-note" hidden>Edited Since This Report · Download Again To Update</p>
+          <dl id="report-stats" class="kv"></dl>
+          <div id="report-meta-wrap">
+            <h4 class="pane-h4">Metadata Cleared</h4>
+            <ul id="report-meta" class="chips"></ul>
+          </div>
+          <div id="report-warn-wrap" hidden>
+            <h4 class="pane-h4">Warnings</h4>
+            <ul id="report-warnings" class="notes"></ul>
+          </div>
+          <button id="btn-download-again" type="button" class="btn btn-sm">Download Again</button>
+        </section>
+
+        <section id="pane-summary" class="pane-section" hidden>
+          <div class="tiles">
+            <div class="tile tile-main"><span id="tile-redactions" class="tile-num">0</span><span class="tile-cap">Redactions</span></div>
+            <div class="tile"><span id="tile-kept" class="tile-num">0</span><span class="tile-cap">Kept</span></div>
+            <div class="tile"><span id="tile-added" class="tile-num">0</span><span class="tile-cap">Added</span></div>
+          </div>
+          <div class="switch-row">
+            <span id="changes-only-label" class="switch-label">Show Changed Paragraphs Only</span>
+            <button id="btn-changes-only" type="button" class="switch-btn" role="switch" aria-checked="false" aria-labelledby="changes-only-label"
+                    data-tip-title="Show Changed Paragraphs Only" data-tip="Collapse paragraphs that contain no personal information.">
+              <span class="switch" aria-hidden="true"></span>
+            </button>
+          </div>
+          <h3 class="pane-h">By Type</h3>
+          <ul id="type-list" class="type-list"></ul>
+          <p class="pane-tip">Click A Change To Keep It · Select Text To Add One</p>
+          <button id="btn-reset-review" type="button" class="link-btn" hidden>Undo Review Changes</button>
+        </section>
+
+        <section id="pane-doc" class="pane-section" hidden>
+          <h3 class="pane-h">Document</h3>
+          <ul id="doc-stats" class="chips"></ul>
+          <ul id="doc-warnings" class="notes"></ul>
+        </section>
+      </div>
+
+      <!-- Settings tab -->
+      <div id="panel-settings" class="insp-panel" role="tabpanel" aria-labelledby="tab-settings" tabindex="0" hidden>
+        <form class="form" id="settings-form" autocomplete="off">
+          <div class="form-field">
+            <div class="label-row" data-tip-title="Detector" data-tip="How personal information is found: the fine-tuned model with validated rules, the model alone, or rules alone.">
+              <label class="form-label" for="detector">Detector</label>
+              <button type="button" class="info-btn" aria-label="About Detector"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg></button>
+            </div>
+            <select id="detector" class="input" disabled></select>
+          </div>
+
+          <div class="form-field">
+            <div class="label-row" data-tip-title="Preset" data-tip="A ready-made selection of PII types. Changing individual types switches to Custom.">
+              <label class="form-label" for="preset">Preset</label>
+              <button type="button" class="info-btn" aria-label="About Preset"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg></button>
+            </div>
+            <select id="preset" class="input" disabled></select>
+          </div>
+
+          <fieldset class="form-field fieldset" aria-labelledby="types-legend" aria-describedby="types-count">
+            <div class="label-row" data-tip-title="PII Types" data-tip="Choose exactly which kinds of personal information to detect.">
+              <span id="types-legend" class="form-label">PII Types</span>
+              <button type="button" class="info-btn" aria-label="About PII Types"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg></button>
+              <span id="types-count" class="label-meta">0 Selected</span>
+            </div>
+            <div class="text-actions">
+              <button id="types-all" type="button" class="link-btn">Select All</button>
+              <span class="text-sep" aria-hidden="true">·</span>
+              <button id="types-none" type="button" class="link-btn">Clear</button>
+            </div>
+            <div id="types-grid" class="type-chips"></div>
+          </fieldset>
+
+          <div class="form-field">
+            <div class="label-row" data-tip-title="Confidence" data-tip="Minimum model confidence required to flag text. Lower values catch more personal information but may over-redact.">
+              <label class="form-label" for="confidence">Confidence</label>
+              <button type="button" class="info-btn" aria-label="About Confidence"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg></button>
+              <output id="confidence-value" for="confidence" class="range-value">0.50</output>
+            </div>
+            <input id="confidence" class="range" type="range" min="0.01" max="0.95" step="0.01" value="0.5" disabled>
+            <div class="range-scale" aria-hidden="true"><span>Broader</span><span>Stricter</span></div>
+          </div>
+
+          <fieldset class="form-field fieldset" aria-labelledby="style-legend">
+            <div class="label-row" data-tip-title="Redaction Style" data-tip="How each item is replaced in the saved document.">
+              <span id="style-legend" class="form-label">Redaction Style</span>
+              <button type="button" class="info-btn" aria-label="About Redaction Style"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg></button>
+            </div>
+            <div id="mode-group" class="segmented segmented-block" role="radiogroup" aria-label="Redaction Style"></div>
+          </fieldset>
+
+          <div class="form-field">
+            <div class="label-row" data-tip-title="Always Redact" data-tip="Terms that are always removed wherever they appear, one per line.">
+              <label class="form-label" for="deny-terms">Always Redact</label>
+              <button type="button" class="info-btn" aria-label="About Always Redact"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg></button>
+              <span id="deny-count" class="label-meta" hidden></span>
+            </div>
+            <textarea id="deny-terms" class="input textarea" rows="3" spellcheck="false" placeholder="One term per line"></textarea>
+          </div>
+
+          <div class="form-field">
+            <div class="label-row" data-tip-title="Never Redact" data-tip="Terms that are never removed, even when detected, one per line.">
+              <label class="form-label" for="allow-terms">Never Redact</label>
+              <button type="button" class="info-btn" aria-label="About Never Redact"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg></button>
+              <span id="allow-count" class="label-meta" hidden></span>
+            </div>
+            <textarea id="allow-terms" class="input textarea" rows="3" spellcheck="false" placeholder="One term per line"></textarea>
+          </div>
+        </form>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ============ Status bar ============ -->
+  <footer class="statusbar">
+    <button id="status-counts" type="button" class="status-btn" disabled
+            data-tip-title="Changes" data-tip="Open the list of changes and the redaction report.">
+      <span id="status-text">Ready</span>
+    </button>
+    <span id="status-residual" class="status-residual" hidden></span>
+    <span class="status-spacer"></span>
+    <span id="status-model" class="status-model" data-state="pending"><span class="status-dot" aria-hidden="true"></span><span id="status-model-text">Connecting…</span></span>
+    <label class="zoom" data-tip-title="Zoom" data-tip="Change the page magnification.">
+      <span class="visually-hidden">Zoom</span>
+      <select id="zoom" class="zoom-select">
+        <option value="0.9">90%</option>
+        <option value="1" selected>100%</option>
+        <option value="1.25">125%</option>
+      </select>
+    </label>
+  </footer>
+</div>
+
+<!-- ============ Floating UI ============ -->
+<div id="file-menu" class="menu" role="menu" aria-labelledby="btn-file" hidden>
+  <button id="menu-open" type="button" class="menu-item" role="menuitem">
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"></path></svg>
+    <span>Open…</span>
+  </button>
+  <button id="menu-start-over" type="button" class="menu-item" role="menuitem">
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"></path><path d="M3.5 4.5v5h5"></path></svg>
+    <span>Start Over</span>
+  </button>
+</div>
+
+<div id="sel-toolbar" class="sel-toolbar" hidden>
+  <button id="sel-add" type="button" class="btn btn-primary btn-sm">Redact Selection As</button>
+  <label for="sel-label" class="visually-hidden">PII Type For The Selection</label>
+  <select id="sel-label" class="sel-select"></select>
+</div>
+
+<div id="tooltip" class="tooltip" role="tooltip" hidden>
+  <div id="tooltip-title" class="tooltip-title"></div>
+  <div id="tooltip-text" class="tooltip-text"></div>
+</div>
+<div id="toasts" class="toasts" aria-live="polite" aria-relevant="additions"></div>
+<label for="file-input" class="visually-hidden">Choose A Word Document</label>
+<input id="file-input" class="visually-hidden" type="file" tabindex="-1"
+       accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+</body>
+</html>

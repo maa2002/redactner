@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+
+# large or regenerable artefacts
+data/
+outputs/
+runs/
+
+# trained checkpoints stay local; only the exported model used by the application is shared
+models/*
+!models/redactner-best/
+
+# generated sample outputs (inputs are committed)
+samples/*_redacted.docx

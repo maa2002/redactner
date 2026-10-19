@@ -1,0 +1,102 @@
+[
+  {
+    "value": "Robert Shaffer",
+    "label": "PERSON",
+    "location": "body"
+  },
+  {
+    "value": "Duke Street Medical Centre",
+    "label": "ORGANIZATION",
+    "location": "body"
+  },
+  {
+    "value": "8/432 King Part",
+    "label": "ADDRESS",
+    "location": "body"
+  },
+  {
+    "value": "Catherinefurt NT 5783",
+    "label": "ADDRESS",
+    "location": "body"
+  },
+  {
+    "value": "(02) 9946 8390",
+    "label": "PHONE",
+    "location": "body"
+  },
+  {
+    "value": "r.shaffer@example.org",
+    "label": "EMAIL",
+    "location": "body"
+  },
+  {
+    "value": "Samantha Garner",
+    "label": "PERSON",
+    "location": "body"
+  },
+  {
+    "value": "Garner",
+    "label": "PERSON",
+    "location": "body"
+  },
+  {
+    "value": "Spencerberg Cardiology Clinic",
+    "label": "ORGANIZATION",
+    "location": "body"
+  },
+  {
+    "value": "521 Curtis Pass",
+    "label": "ADDRESS",
+    "location": "body"
+  },
+  {
+    "value": "Smithchester ACT 2682",
+    "label": "ADDRESS",
+    "location": "body"
+  },
+  {
+    "value": "Tiffany Leon",
+    "label": "PERSON",
+    "location": "body"
+  },
+  {
+    "value": "Tiffany",
+    "label": "PERSON",
+    "location": "body"
+  },
+  {
+    "value": "11 December 1961",
+    "label": "DATE",
+    "location": "body"
+  },
+  {
+    "value": "5245 37895 7",
+    "label": "ID_NUMBER",
+    "location": "body"
+  },
+  {
+    "value": "David Horn",
+    "label": "PERSON",
+    "location": "body"
+  },
+  {
+    "value": "John Fischer",
+    "label": "PERSON",
+    "location": "deleted"
+  },
+  {
+    "value": "0495 472 540",
+    "label": "PHONE",
+    "location": "textbox"
+  },
+  {
+    "value": "Emily Wilson",
+    "label": "PERSON",
+    "location": "metadata"
+  },
+  {
+    "value": "Sally Yates",
+    "label": "PERSON",
+    "location": "metadata"
+  }
+]

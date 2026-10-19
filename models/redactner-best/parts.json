@@ -1,0 +1,13 @@
+{
+  "model-00001-of-00005.safetensors": {
+    "parts": [
+      "model-00001-of-00005.safetensors.part00",
+      "model-00001-of-00005.safetensors.part01",
+      "model-00001-of-00005.safetensors.part02",
+      "model-00001-of-00005.safetensors.part03",
+      "model-00001-of-00005.safetensors.part04"
+    ],
+    "sha256": "f9ed42fb587badd96702955dc36e7fecb7dfdb404962ed750f0fd96bb5968b6d",
+    "bytes": 196761752
+  }
+}

@@ -1,7 +1,8 @@
 {
-  "run_name": "modernbert-base",
-  "model_name": "answerdotai/ModernBERT-base",
-  "threshold": 0.99,
+  "run_name": "deberta-v3-base_s42",
+  "model_name": "microsoft/deberta-v3-base",
+  "threshold": 0.97,
+  "category_thresholds": null,
   "max_len": 512,
   "stride": 128,
   "labels": [
@@ -19,46 +20,50 @@
     "URL",
     "ORGANIZATION"
   ],
-  "selection": "highest development char-F5 at the tuned threshold (precision >= 0.80), tie-break entity F1",
+  "selection": "architecture with the highest mean development char-F5 at tuned thresholds (precision >= 0.80); best seed exported",
   "dev": {
-    "tau": 0.99,
-    "char_precision": 0.9530377777042016,
-    "char_recall": 0.999028202938992,
-    "char_f1": 0.9754912260487058,
-    "char_f5": 0.9971774161312587,
-    "entity_f1": 0.938258519264402,
-    "leak_rate": 0.0017801513128615932
+    "char_precision": 0.8941023211747987,
+    "char_recall": 0.9961697812326821,
+    "char_f1": 0.9423804250720847,
+    "char_f5": 0.9918150891834363,
+    "leak_rate": 0.0062082139446036294,
+    "direct_leak_rate": 0.003981420039814201
   },
   "test": {
     "test_nemotron": {
-      "char_precision": 0.9369941936355043,
-      "char_recall": 0.9960764048384627,
-      "char_f1": 0.9656324073086218,
-      "char_f5": 0.993666570588786,
-      "leak_rate": 0.004677268475210477,
-      "entity_precision": 0.8753549119818285,
-      "entity_recall": 0.9613345806049267,
-      "entity_f1": 0.9163322930598901
+      "char_precision": 0.9427903097120476,
+      "char_recall": 0.9951194304088194,
+      "char_f5": 0.9929995857047573,
+      "leak_rate": 0.004053632678515747,
+      "direct_leak_rate": 0.0006999533364442371,
+      "entity_f1": 0.9424996275882616
     },
     "test_ai4privacy": {
-      "char_precision": 0.9886600176229455,
-      "char_recall": 0.9998708494233427,
-      "char_f1": 0.9942338316124724,
-      "char_f5": 0.9994349642905376,
-      "leak_rate": 0.00037016472330186933,
-      "entity_precision": 0.9629293112847538,
-      "entity_recall": 0.9807514343883028,
-      "entity_f1": 0.9717586649550706
+      "char_precision": 0.9911418455127632,
+      "char_recall": 0.9996648015883248,
+      "char_f5": 0.9993342860527724,
+      "leak_rate": 0.0009237021984112322,
+      "direct_leak_rate": 0.000751503006012024,
+      "entity_f1": 0.9857837292488305
     },
     "test_gretel": {
-      "char_precision": 0.5180579100834068,
-      "char_recall": 0.8320409496841646,
-      "char_f1": 0.6385390112415897,
-      "char_f5": 0.8130873485961759,
-      "leak_rate": 0.24301581958936386,
-      "entity_precision": 0.26629784688995217,
-      "entity_recall": 0.5994614607876136,
-      "entity_f1": 0.36877523553162855
+      "char_precision": 0.6594046984709397,
+      "char_recall": 0.9818422849797132,
+      "char_f5": 0.9637176163887774,
+      "leak_rate": 0.02238920410979911,
+      "direct_leak_rate": 0.020130254588513915,
+      "entity_f1": 0.6434440458280293
+    },
+    "test_tab": {
+      "char_precision": 0.5991045261589217,
+      "char_recall": 0.888833082203248,
+      "char_f5": 0.8726025841044351,
+      "leak_rate": 0.14065593066181584,
+      "direct_leak_rate": 0.2142608695652174,
+      "entity_f1": 0.44661034411704104,
+      "er_direct": 0.8751076658053403,
+      "er_quasi": 0.8616576403647083,
+      "word_precision": 0.6777262520965938
     }
   }
 }

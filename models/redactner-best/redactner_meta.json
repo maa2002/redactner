@@ -1,0 +1,64 @@
+{
+  "run_name": "modernbert-base",
+  "model_name": "answerdotai/ModernBERT-base",
+  "threshold": 0.99,
+  "max_len": 512,
+  "stride": 128,
+  "labels": [
+    "PERSON",
+    "EMAIL",
+    "PHONE",
+    "ADDRESS",
+    "LOCATION",
+    "DATE",
+    "ID_NUMBER",
+    "FINANCIAL",
+    "USERNAME",
+    "CREDENTIAL",
+    "IP_ADDRESS",
+    "URL",
+    "ORGANIZATION"
+  ],
+  "selection": "highest development char-F5 at the tuned threshold (precision >= 0.80), tie-break entity F1",
+  "dev": {
+    "tau": 0.99,
+    "char_precision": 0.9530377777042016,
+    "char_recall": 0.999028202938992,
+    "char_f1": 0.9754912260487058,
+    "char_f5": 0.9971774161312587,
+    "entity_f1": 0.938258519264402,
+    "leak_rate": 0.0017801513128615932
+  },
+  "test": {
+    "test_nemotron": {
+      "char_precision": 0.9369941936355043,
+      "char_recall": 0.9960764048384627,
+      "char_f1": 0.9656324073086218,
+      "char_f5": 0.993666570588786,
+      "leak_rate": 0.004677268475210477,
+      "entity_precision": 0.8753549119818285,
+      "entity_recall": 0.9613345806049267,
+      "entity_f1": 0.9163322930598901
+    },
+    "test_ai4privacy": {
+      "char_precision": 0.9886600176229455,
+      "char_recall": 0.9998708494233427,
+      "char_f1": 0.9942338316124724,
+      "char_f5": 0.9994349642905376,
+      "leak_rate": 0.00037016472330186933,
+      "entity_precision": 0.9629293112847538,
+      "entity_recall": 0.9807514343883028,
+      "entity_f1": 0.9717586649550706
+    },
+    "test_gretel": {
+      "char_precision": 0.5180579100834068,
+      "char_recall": 0.8320409496841646,
+      "char_f1": 0.6385390112415897,
+      "char_f5": 0.8130873485961759,
+      "leak_rate": 0.24301581958936386,
+      "entity_precision": 0.26629784688995217,
+      "entity_recall": 0.5994614607876136,
+      "entity_f1": 0.36877523553162855
+    }
+  }
+}

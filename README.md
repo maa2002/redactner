@@ -70,7 +70,7 @@ Terms that must always be removed, such as a project codename, and terms that mu
 - **One taxonomy.** The corpora use different label schemes, which are mapped onto the 13 categories above with consistent span boundaries.
 - **No overlap between training and test.** Test documents that duplicate a training document, exactly or nearly (MinHash similarity of at least 0.8 over word 5-grams), are removed. Fewer than 1 % of the test documents share a template with any training document.
 - **Targeted augmentation.** In a fifth of the training documents, names, phone numbers, addresses, places and dates are replaced with Australian-format values. Person names are written in capitals or lower case in another 4 %. The synthetic forms pair field labels such as *TFN* or *BSB* with their values, so the model learns to redact the value but not the label.
-- **A real-world test set.** The Text Anonymization Benchmark (TAB) contains judgments of the European Court of Human Rights annotated by legal experts. It is never used for training or tuning and is the only test set written by people rather than generated.
+- **A real-world test set.** The Text Anonymization Benchmark (TAB) contains judgments of the European Court of Human Rights annotated by law students. It is never used for training or tuning and is the only test set written by people rather than generated.
 
 ## Results
 
@@ -128,7 +128,7 @@ The **leak rate** is the share of personal-information mentions with any letter 
 | ModernBERT-base (Prototype) | 0.934 | 0.896 | 0.799 |
 | **RedactNER (Exported DeBERTa-v3-base)** | **0.875** | **0.862** | **0.678** |
 
-TAB counts an entity as protected only when every one of its mentions is masked, and averages over the legal experts who annotated each judgment. Its annotators masked only what identifies the applicant, leaving judges, officials and public bodies visible, so every system that removes all personal names scores a lower precision. TAB also masks countries and public institutions, which this taxonomy does not treat as personal information.
+TAB counts an entity as protected only when every one of its mentions is masked, and averages over the law students who annotated each judgment. Its annotators masked only what identifies the applicant, leaving judges, officials and public bodies visible, so every system that removes all personal names scores a lower precision. TAB also masks countries and public institutions, which this taxonomy does not treat as personal information.
 
 ### Label Quality of the Gretel Test Set
 

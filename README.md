@@ -1,13 +1,17 @@
+<div align="center">
+
 # RedactNER
 
 **Context-aware redaction of personal information in Microsoft Word documents, running entirely on your own machine.**
 
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
-![PyTorch](https://img.shields.io/badge/PyTorch-CUDA%20%7C%20CPU-EE4C2C?logo=pytorch&logoColor=white)
-![Transformers](https://img.shields.io/badge/Hugging%20Face-Transformers-FFD21E?logo=huggingface&logoColor=black)
-![FastAPI](https://img.shields.io/badge/FastAPI-local%20web%20app-009688?logo=fastapi&logoColor=white)
+![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![PyTorch 2.6+](https://img.shields.io/badge/PyTorch-2.6%2B-EE4C2C?logo=pytorch&logoColor=white)
+![Transformers 4.56+](https://img.shields.io/badge/Transformers-4.56%2B-FFD21E?logo=huggingface&logoColor=black)
+![FastAPI](https://img.shields.io/badge/FastAPI-Local%20Web%20App-009688?logo=fastapi&logoColor=white)
 ![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Linux%20%7C%20Windows-555555)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1F6FEB)](LICENSE)
+
+</div>
 
 ![RedactNER reviewing a CV: every detected item is shown as a tracked change before export](docs/images/app-markup.png)
 
@@ -268,7 +272,7 @@ uv run papermill notebooks/03_evaluate_and_select.ipynb notebooks/03_evaluate_an
 uv run papermill notebooks/04_error_analysis.ipynb notebooks/04_error_analysis.ipynb -k redactner --cwd notebooks
 ```
 
-Training uses 512-token windows with a 128-token overlap, two epochs and bf16 mixed precision. The base models need about 3 to 6 GB of GPU memory; ModernBERT-large fits in 8 GB with gradient checkpointing and 8-bit AdamW (`-y "GRADIENT_CHECKPOINTING: true" -p OPTIM adamw_bnb_8bit`).
+Training uses 512-token windows with a 128-token overlap, two epochs and bf16 mixed precision. The ModernBERT-large run adds `-y "GRADIENT_CHECKPOINTING: true" -p OPTIM adamw_bnb_8bit`.
 
 ## Project Structure
 

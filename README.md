@@ -1,8 +1,8 @@
 <div align="center">
 
-# RedactNER
+# RedactNER: Context-Aware Redaction of Personal Information in Documents
 
-**Context-aware redaction of personal information in Microsoft Word documents, running entirely on your own machine.**
+**Finds and Redacts Names, Contact Details, ID Numbers and More in Word Documents, Entirely on Your Own Machine**
 
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![PyTorch 2.6+](https://img.shields.io/badge/PyTorch-2.6%2B-EE4C2C?logo=pytorch&logoColor=white)

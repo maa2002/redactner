@@ -46,6 +46,22 @@ def clean_text(text: str) -> str:
     return _SURROGATES.sub("�", text)
 
 
+def _not_capturing() -> bool:
+    return False
+
+
+def avoid_cuda_queries_without_a_card() -> None:
+    """Without a usable graphics card, never ask the CUDA runtime about its state.
+
+    On every forward pass the model library asks PyTorch whether a CUDA graph is being recorded. With
+    a CUDA build of PyTorch on a machine that has no usable card or driver, that question can crash
+    the whole process inside the CUDA runtime, where no Python error handling can catch it. Nothing
+    can be recorded there, so the answer is fixed to "no".
+    """
+    if not torch.cuda.is_available():
+        torch.cuda.is_current_stream_capturing = _not_capturing
+
+
 def load_tokenizer(model_dir: Path, max_len: int, stride: int) -> Tokenizer:
     """The tokenizer exactly as it was saved with the model, set to cut long text into overlapping windows.
 
@@ -112,6 +128,7 @@ class TokenClassifierDetector:
         if not isinstance(self.meta, dict):
             raise ValueError(f"{META_FILE} must contain a JSON object")
         validate_meta(self.meta)
+        avoid_cuda_queries_without_a_card()
         self.device = torch.device(device or os.environ.get("REDACTNER_DEVICE") or default_device())
         join_split_files(self.model_dir)  # large weight files are stored in parts in the repository
         # The exported weights are stored in half precision to keep the files small. They are loaded as

@@ -3,9 +3,10 @@
 import time
 
 import pytest
+import torch
 
-from redactner.inference import (MAX_TEXT_CHARS, TokenClassifierDetector, clean_text, load_tokenizer, snap_to_words,
-                                 validate_meta)
+from redactner.inference import (MAX_TEXT_CHARS, TokenClassifierDetector, avoid_cuda_queries_without_a_card, clean_text,
+                                 load_tokenizer, snap_to_words, validate_meta)
 from redactner.paths import default_model_dir
 from redactner.types import Span
 
@@ -80,3 +81,18 @@ def test_snap_stays_fast_with_many_spans_in_one_long_run():
     snapped = snap_to_words(text, spans)
     assert time.perf_counter() - started < 5  # walking outwards per span would take minutes
     assert [(sp.start, sp.end) for sp in snapped] == [(0, 200_000)]  # all merged into the one whole word
+
+
+def test_the_cuda_runtime_is_not_questioned_without_a_graphics_card(monkeypatch):
+    """That question crashed a machine with a CUDA build of PyTorch and no card; see the function's note."""
+    def crash():
+        raise AssertionError("the CUDA runtime was asked")
+
+    monkeypatch.setattr(torch.cuda, "is_current_stream_capturing", crash)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    avoid_cuda_queries_without_a_card()
+    assert torch.cuda.is_current_stream_capturing is crash  # with a card, PyTorch's own answer is used
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    avoid_cuda_queries_without_a_card()
+    assert torch.cuda.is_current_stream_capturing() is False

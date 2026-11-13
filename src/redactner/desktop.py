@@ -674,9 +674,12 @@ def main(argv: list[str] | None = None) -> None:
     code = run(argv)
     log.info("exit code %d", code)
     logging.shutdown()
-    if is_frozen():
-        os._exit(code)  # do not wait for a background thread that is still loading the model
-    sys.exit(code)
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(Exception):
+            stream.flush()
+    # End now. A thread may still be loading the model, or waiting to hand a result to a window that has
+    # already closed (on some systems that never returns). Nothing needs saving, so nothing is waited for.
+    os._exit(code)
 
 
 if __name__ == "__main__":

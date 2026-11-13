@@ -51,6 +51,9 @@ jobs:
       - name: Unit tests
         run: uv run pytest -q
 
+      - name: Self-test (model and Word engine, no window)
+        run: uv run python -m redactner.desktop --self-test
+
       - name: Window test
         if: runner.os != 'Linux'
         run: uv run python -m redactner.desktop --window-test --self-test-output window-test.json

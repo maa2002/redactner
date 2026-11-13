@@ -5,8 +5,8 @@ description = "Local, context-aware PII redaction for Word documents with fine-t
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-  "torch>=2.6",
-  "transformers>=4.56,<5",
+  "torch>=2.13",
+  "transformers>=5.10,<6",
   "datasets>=3.0",
   "accelerate>=1.0",
   "sentencepiece",
@@ -19,17 +19,22 @@ dependencies = [
   "lxml",
   "python-docx>=1.2",
   "faker",
-  "fastapi",
-  "uvicorn",
   "typer",
   "tabulate>=0.10.0",
   "datasketch>=2.0.0",
 ]
 
+[project.optional-dependencies]
+# the review window (redactner desktop): uv sync --extra desktop
+desktop = [
+  "pywebview>=6.2,<7",
+  # Linux has no browser engine of its own for the window; Qt WebEngine brings one
+  "pywebview[qt]>=6.2,<7; sys_platform == 'linux'",
+]
+
 [dependency-groups]
 dev = [
   "pytest",
-  "httpx",
   "ipykernel",
   "papermill",
   "jupytext",
@@ -46,6 +51,10 @@ experiments = [
 [project.scripts]
 redactner = "redactner.cli:app"
 
+[project.gui-scripts]
+# the review window without a console; needs the "desktop" extra, see packaging/ for the Windows build
+redactner-desktop = "redactner.desktop:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -54,13 +63,13 @@ build-backend = "hatchling.build"
 packages = ["src/redactner"]
 
 [[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
 explicit = true
 
 [tool.uv.sources]
-# CUDA 12.8 wheels on Windows and Linux; macOS uses the standard PyPI build (CPU / Apple Silicon)
-torch = [{ index = "pytorch-cu128", marker = "sys_platform != 'darwin'" }]
+# CUDA 13.0 wheels on Windows and Linux; macOS uses the standard PyPI build (CPU / Apple Silicon)
+torch = [{ index = "pytorch-cu130", marker = "sys_platform != 'darwin'" }]
 en-core-web-trf = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl" }
 
 [tool.pytest.ini_options]

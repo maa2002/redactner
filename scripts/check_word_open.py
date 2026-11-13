@@ -20,6 +20,7 @@ def word_text(path: Path) -> str:
 
     pythoncom.CoInitialize()
     word = win32com.client.DispatchEx("Word.Application")
+    word.AutomationSecurity = 3  # msoAutomationSecurityForceDisable: never run macros in the files we open
     word.Visible = False
     word.DisplayAlerts = 0
     try:
@@ -42,6 +43,9 @@ def main() -> int:
     args = ap.parse_args()
     failures = 0
     for path in args.files:
+        if path.suffix.lower() != ".docx":  # macro-enabled and legacy formats are not opened
+            print(f"SKIP  {path.name}: only .docx files are checked")
+            continue
         try:
             text = word_text(path)
         except Exception as exc:  # noqa: BLE001 - COM errors are opaque; report and continue

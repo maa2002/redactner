@@ -16,14 +16,17 @@ over all XML parts of a package.
 
 from __future__ import annotations
 
+import bisect
 import posixpath
 import re
+import unicodedata
 import zipfile
 import zlib
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from io import BytesIO
+from itertools import islice
 from typing import Any
 from urllib.parse import unquote
 
@@ -47,6 +50,10 @@ TablePosition = dict[str, int]  # {"t", "r", "c", "rows", "cols"}
 MAX_BYTES = 20 * 2**20
 MAX_UNCOMPRESSED = 200 * 2**20
 MAX_ENTRIES = 3000
+MAX_SEGMENTS = 200_000  # paragraphs with text; far beyond any real document
+MAX_PARAGRAPHS = 1_000_000  # paragraph elements of any kind, empty ones included
+MAX_ELEMENTS = 5_000_000  # XML elements in all parts together
+MAX_BLOCK_STRINGS = 10_000  # strings of one drawing text block that are joined for the residual scan
 
 OBJECT_CHAR = "\N{OBJECT REPLACEMENT CHARACTER}"  # drawings, symbols, embedded objects
 REDACTED = "[REDACTED]"  # replacement used by the residual verifier
@@ -58,6 +65,8 @@ REDACTED_URL = "https://redacted.invalid/"
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 MC_NS = "http://schemas.openxmlformats.org/markup-compatibility/2006"
+M_NS = "http://schemas.openxmlformats.org/officeDocument/2006/math"
+A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
 W15_NS = "http://schemas.microsoft.com/office/word/2012/wordml"
 PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
@@ -83,6 +92,13 @@ W_ALTCHUNK, W_FONT = _w("altChunk"), _w("font")
 W_COMMENT, W_FOOTNOTE, W_ENDNOTE = _w("comment"), _w("footnote"), _w("endnote")
 W_AUTHOR, W_INITIALS, W_TOOLTIP = _w("author"), _w("initials"), _w("tooltip")
 W_INSTR, W_TYPE = _w("instr"), _w("type")
+W_BOOKMARK_START, W_NAME, W_ANCHOR = _w("bookmarkStart"), _w("name"), _w("anchor")
+W_FLDCHAR, W_FLDCHARTYPE = _w("fldChar"), _w("fldCharType")
+M_T, M_PREFIX = f"{{{M_NS}}}t", f"{{{M_NS}}}"
+A_P, A_T = (f"{{{A_NS}}}{local}" for local in ("p", "t"))
+W_DELTEXT = _w("delText")
+SVG_TEXT = "{http://www.w3.org/2000/svg}text"
+VML_TEXTBOX = "{urn:schemas-microsoft-com:vml}textbox"
 R_ID = f"{{{R_NS}}}id"
 MC_ALTERNATE, MC_CHOICE, MC_FALLBACK = (
     f"{{{MC_NS}}}{local}" for local in ("AlternateContent", "Choice", "Fallback")
@@ -92,7 +108,7 @@ REL = f"{{{PKG_REL_NS}}}Relationship"
 CT_DEFAULT, CT_OVERRIDE = f"{{{CT_NS}}}Default", f"{{{CT_NS}}}Override"
 XML_SPACE = f"{{{XML_NS}}}space"
 
-# Paragraph walker: run content that maps to characters, and containers to descend
+# Paragraph walker (also Office Math ``m:t`` and ruby text): run content that maps to characters, and containers to descend
 # into. Everything else -- w:pPr, w:rPr, w:sdtPr, w:instrText, w:delText, w:fldChar,
 # w:softHyphen (zero-width), nested w:txbxContent (own paragraphs) -- is skipped.
 _CHAR_PIECES: dict[str, str] = {
@@ -110,7 +126,7 @@ _CONTAINERS = frozenset(
     _w(local)
     for local in (
         "r", "hyperlink", "smartTag", "customXml", "sdt", "sdtContent",
-        "fldSimple", "dir", "bdo", "ins", "moveTo",
+        "fldSimple", "dir", "bdo", "ins", "moveTo", "ruby", "rt", "rubyBase",
     )
 )
 
@@ -164,14 +180,37 @@ _OFF_VALUES = frozenset({"0", "false", "off", "none"})
 _PROTECTED_ATTRIBUTES = frozenset(
     {"paraId", "textId", "durableId", "ascii", "hAnsi", "cs", "eastAsia", "typeface", "panose"}
 )
+# Free-text attributes (names, captions, alt text) never hold schema tokens, so the
+# token skip does not apply to them -- nor to custom XML and document properties.
+_WP_DOCPR = "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}docPr"
+_FREE_TEXT_ATTRIBUTES = frozenset({
+    (_w("docVar"), "val"), (_w("alias"), "val"), (_w("tag"), "val"),
+    (_WP_DOCPR, "descr"), (_WP_DOCPR, "title"), ("{urn:schemas-microsoft-com:vml}textpath", "string"),
+})
+_DATA_PART_PREFIXES = ("customxml/", "docprops/")
 _SCHEMA_TOKEN = re.compile(
     r"[a-z][A-Za-z0-9]*|[-+]?(?=[0-9A-Fa-f.]*\d)[0-9A-Fa-f.]+(?:%|pt|in|cm|mm|pc|pi|em|px)?"
 )
 
 _OLE_MAGIC = b"\xd0\xcf\x11\xe0"
 _DOCTYPE = re.compile(rb"<!DOCTYPE", re.IGNORECASE)
-_EMAIL = re.compile(r"[\w.%+-]+@[\w-]+(?:\.[\w-]+)+")
-_SEPARATOR_CLASS = r"[\s\-\N{HYPHEN}-\N{HORIZONTAL BAR}.()]"  # spaces, dashes, dots, parens
+# The look-behind makes each run of address characters be tried once (not quadratic).
+_EMAIL = re.compile(r"(?<![\w.%+-])[\w.%+-]+@[\w-]+(?:\.[\w-]+)+")
+_XML_ILLEGAL = re.compile("[^\t\n\r\u0020-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]")
+_HYPERLINK_FIELD = re.compile(r"\s*HYPERLINK\b", re.IGNORECASE)
+_FIELD_TOKEN = re.compile(r'"[^"]*"?|\\[A-Za-z]\S*|\S+')
+_SWITCHES_WITH_ARGUMENT = frozenset({"\\l", "\\o", "\\t"})  # bookmark, tooltip, frame
+_SEPARATOR_CLASS = r"[\s\-\N{HYPHEN}-\N{HORIZONTAL BAR}\N{MINUS SIGN}.()/,]"  # spaces, dashes, dots, parens, / ,
+# Characters that are written differently but read the same: a copy of a redacted value may use any form.
+_HYPHENS = "-\N{HYPHEN}\N{NON-BREAKING HYPHEN}\N{FIGURE DASH}\N{EN DASH}\N{EM DASH}\N{HORIZONTAL BAR}\N{MINUS SIGN}"
+_APOSTROPHES = "'\N{LEFT SINGLE QUOTATION MARK}\N{RIGHT SINGLE QUOTATION MARK}\N{MODIFIER LETTER APOSTROPHE}"
+_FULLWIDTH_ZERO = ord("\N{FULLWIDTH DIGIT ZERO}")
+_LOOKALIKES = str.maketrans({
+    **{ch: "-" for ch in _HYPHENS}, **{ch: "'" for ch in _APOSTROPHES},
+    **{chr(_FULLWIDTH_ZERO + digit): str(digit) for digit in range(10)},
+})
+_ZERO_WIDTH_CLASS = "[\u200b-\u200f\u00ad\u2060\ufeff]"  # invisible characters inside a value
+_ZERO_WIDTH = re.compile(_ZERO_WIDTH_CLASS)
 _SEPARATORS = re.compile(_SEPARATOR_CLASS)
 _URL_PUNCTUATION = re.compile(r"[-_.+/=&?#:%~]+")
 
@@ -225,6 +264,7 @@ class _Package:
     defaults: dict[str, str] = field(default_factory=dict)  # extension -> content type
     overrides: dict[str, str] = field(default_factory=dict)  # lower-case part name -> type
     names: dict[str, str] = field(default_factory=dict)  # lower-case part name -> entry name
+    unreadable: list[str] = field(default_factory=list)  # SVG / VML parts that are not valid XML
 
     def find(self, name: str) -> str | None:
         """Entry name for a part name, case-insensitively (OPC names are)."""
@@ -236,17 +276,47 @@ class _Package:
 
     @property
     def xml_parts(self) -> list[str]:
-        """Every XML entry (images such as SVG are excluded)."""
+        """Every XML entry (raster images excluded; SVG and VML drawings are read as XML)."""
         parts = []
         for name in self.raw:
             if name.endswith("/"):
                 continue
             ctype = self.content_type(name)
-            if ctype.startswith("image/"):
+            if ctype.startswith("image/") and not _is_optional_xml(name, ctype):
                 continue
-            if name.lower().endswith((".xml", ".rels")) or ctype.endswith("xml"):
+            if name.lower().endswith((".xml", ".rels", ".svg", ".vml")) or ctype.endswith("xml"):
                 parts.append(name)
         return parts
+
+    def opaque_parts(self) -> list[str]:
+        """Entries that are neither XML nor images, media, fonts or embeddings."""
+        xml = set(self.xml_parts)
+        found = []
+        for name in self.raw:
+            ctype = self.content_type(name).lower()
+            lowered = name.lower()
+            if name.endswith("/") or name in xml or name.startswith("[") or lowered.startswith("word/embeddings/"):
+                continue
+            if ctype.startswith(_BINARY_TYPE_PREFIXES) or "font" in ctype or "oleobject" in ctype:
+                continue
+            if lowered.endswith(_BINARY_SUFFIXES):
+                continue
+            found.append(name)
+        return found
+
+
+_BINARY_TYPE_PREFIXES = ("image/", "audio/", "video/", "font/")
+_BINARY_SUFFIXES = (".odttf", ".fntdata", ".ttf", ".otf", ".woff", ".woff2", ".eot")
+
+
+def _is_optional_xml(name: str, ctype: str = "") -> bool:
+    """SVG / VML drawings: scanned as XML when they parse, otherwise left alone (with a warning).
+
+    A part declared as some other XML type (e.g. a header named ``header1.vml``) is not a drawing.
+    """
+    if ctype == "image/svg+xml":
+        return True
+    return name.lower().endswith((".svg", ".vml")) and not ctype.lower().endswith("xml")
 
 
 def _read_package(
@@ -319,9 +389,44 @@ def _parse_xml(name: str, raw: bytes) -> Element:
     return root
 
 
+def _check_element_count(package: _Package) -> None:
+    """Refuse packages built to be slow, before parsing them.
+
+    A small file can hold millions of empty elements, and each one is visited several times while a
+    document is opened, redacted and checked. Every element needs a ``<`` that does not start an end
+    tag, a comment or a processing instruction, so counting bytes can only over-estimate.
+    """
+    elements = 0
+    for name in package.xml_parts:
+        raw = package.raw[name]
+        elements += raw.count(b"<") - raw.count(b"</") - raw.count(b"<!") - raw.count(b"<?")
+        if elements > MAX_ELEMENTS:
+            raise DocxRefused(f"too many XML elements (more than {MAX_ELEMENTS:,})")
+
+
+def _check_paragraph_count(trees: dict[str, Element]) -> None:
+    """Paragraphs cost far more than other elements, empty or not, so they have their own limit."""
+    paragraphs = 0
+    for root in trees.values():
+        paragraphs += sum(1 for _ in islice(root.iter(W_P, A_P), MAX_PARAGRAPHS + 1 - paragraphs))
+        if paragraphs > MAX_PARAGRAPHS:
+            raise DocxRefused(f"too many paragraphs (more than {MAX_PARAGRAPHS:,})")
+
+
 def _parse_parts(package: _Package) -> dict[str, Element]:
     """Fresh, mutable trees for every XML part."""
-    return {name: _parse_xml(name, package.raw[name]) for name in package.xml_parts}
+    _check_element_count(package)
+    trees: dict[str, Element] = {}
+    for name in package.xml_parts:
+        try:
+            trees[name] = _parse_xml(name, package.raw[name])
+        except DocxError:
+            if not _is_optional_xml(name, package.content_type(name)):
+                raise
+            if name not in package.unreadable:  # e.g. an SVG with a DOCTYPE: do not refuse the file
+                package.unreadable.append(name)
+    _check_paragraph_count(trees)
+    return trees
 
 
 def _check_policy(package: _Package, trees: dict[str, Element]) -> None:
@@ -379,13 +484,11 @@ def _remove(element: Element) -> None:
 
 
 def _unwrap(element: Element) -> None:
-    """Replace ``element`` by its children, in place."""
-    parent = element.getparent()
-    if parent is None:
+    """Replace ``element`` by its children, in place (no index lookups: linear in siblings)."""
+    if element.getparent() is None:
         return
-    index = parent.index(element)
-    for offset, child in enumerate(list(element)):
-        parent.insert(index + offset, child)
+    for child in list(element):
+        element.addprevious(child)
     _remove(element)
 
 
@@ -470,36 +573,75 @@ class _Paragraph:
     text: str
 
 
+def _flatten_text_nodes(root: Element) -> bool:
+    """Fold comments / processing instructions out of ``w:t`` and ``m:t`` (text + child tails).
+
+    Word shows ``Jo<!--x-->hn`` as "John"; without this the model and the rewriter would
+    see only "Jo". Returns whether anything changed.
+    """
+    changed = False
+    for node in list(root.iter(W_T, M_T)):
+        if len(node) == 0:
+            continue
+        text = (node.text or "") + "".join(child.tail or "" for child in node)
+        for child in list(node):
+            node.remove(child)
+        _set_text(node, text)
+        changed = True
+    return changed
+
+
 def _read_paragraph(paragraph: Element) -> _Paragraph:
     """Map a ``w:p`` to its visible text and the pieces that produce it."""
     pieces: list[_Piece] = []
     chunks: list[str] = []
     position = 0
 
-    def visit(parent: Element) -> None:
+    def text_piece(child: Element) -> None:
+        nonlocal position
+        text = child.text or ""
+        pieces.append(_Piece(child, position, position + len(text), True))
+        chunks.append(text)
+        position += len(text)
+
+    def visit(parent: Element, text_only: bool = False) -> None:
         nonlocal position
         for child in parent:
             tag = child.tag
-            if tag == W_T:
-                text = child.text or ""
-                pieces.append(_Piece(child, position, position + len(text), True))
-                chunks.append(text)
-                position += len(text)
+            if tag == W_T or (tag == M_T and not text_only):
+                text_piece(child)
             elif tag in _CHAR_PIECES:
-                pieces.append(_Piece(child, position, position + 1, False))
-                chunks.append(_CHAR_PIECES[tag])
-                position += 1
+                if not text_only:
+                    pieces.append(_Piece(child, position, position + 1, False))
+                    chunks.append(_CHAR_PIECES[tag])
+                    position += 1
             elif tag in _CONTAINERS:
-                visit(child)
-            elif tag == MC_ALTERNATE:  # render one branch only: Choice, else Fallback
-                branch = child.find(MC_CHOICE)
-                if branch is None:
-                    branch = child.find(MC_FALLBACK)
-                if branch is not None:
-                    visit(branch)
+                visit(child, text_only)
+            elif tag == MC_ALTERNATE:  # render Choice, else Fallback; other branches: text only
+                branches = [b for b in child if b.tag in (MC_CHOICE, MC_FALLBACK)]
+                main = child.find(MC_CHOICE)
+                if main is None:
+                    main = child.find(MC_FALLBACK)
+                for branch in branches:
+                    visit(branch, text_only or branch is not main)
+            elif not text_only and isinstance(tag, str) and tag.startswith(M_PREFIX):
+                if not tag.endswith("Pr"):  # Office Math structure; *Pr = properties
+                    visit(child)
 
     visit(paragraph)
     return _Paragraph(paragraph, pieces, "".join(chunks))
+
+
+def _overlapping(pieces: list[_Piece], ends: list[int], start: int, end: int) -> Iterable[int]:
+    """Indexes of the non-empty pieces overlapping ``[start, end)``.
+
+    Pieces are contiguous, so ``ends`` (their end offsets) is sorted and can be bisected.
+    """
+    i = bisect.bisect_right(ends, start)
+    while i < len(pieces) and pieces[i].start < end:
+        if pieces[i].end > pieces[i].start:
+            yield i
+        i += 1
 
 
 def _rewrite(pieces: list[_Piece], edits: list[Edit]) -> None:
@@ -515,11 +657,9 @@ def _rewrite(pieces: list[_Piece], edits: list[Edit]) -> None:
     inserts: dict[int, dict[int, str]] = {}
     doomed: list[Element] = []
     orphans: list[tuple[Element, str]] = []
+    ends = [piece.end for piece in pieces]
     for start, end, replacement in edits:
-        hits = [
-            i for i, piece in enumerate(pieces)
-            if piece.start < end and piece.end > start and piece.end > piece.start
-        ]
+        hits = list(_overlapping(pieces, ends, start, end))
         if not hits:
             continue
         for i in hits:
@@ -574,7 +714,7 @@ def _location(paragraph: Element, kind: str) -> str:
 def _normalise_edits(edits: Iterable[Edit], length: int) -> tuple[list[Edit], int]:
     """Sort, clip to the segment and merge overlaps. Returns (edits, merged count)."""
     cleaned = sorted(
-        (max(0, int(s)), min(length, int(e)), str(r)) for s, e, r in edits
+        (max(0, int(s)), min(length, int(e)), _XML_ILLEGAL.sub("", str(r))) for s, e, r in edits
     )
     merged: list[Edit] = []
     overlaps = 0
@@ -700,8 +840,27 @@ def _layout(paragraph: _Paragraph, kind: str, tables: _TableIndex) -> dict[str, 
 # --------------------------------------------------------------------------- #
 # Value matching (shared by the residual verifier and find_residuals)
 # --------------------------------------------------------------------------- #
+def _fold(text: str) -> str:
+    """Lower-cased, zero-width characters removed, NFC, look-alike hyphens, apostrophes and
+    full-width digits in their plain form: the form used for cheap pre-checks."""
+    return unicodedata.normalize("NFC", _ZERO_WIDTH.sub("", text.lower())).translate(_LOOKALIKES)
+
+
+def _char_pattern(ch: str) -> str:
+    """Pattern for one character of a value that also accepts the other ways it is written:
+    any hyphen or dash for a hyphen, a curly apostrophe for a straight one, a full-width digit for a digit."""
+    if ch in _HYPHENS:
+        return f"[{re.escape(_HYPHENS)}]"
+    if ch in _APOSTROPHES:
+        return f"[{re.escape(_APOSTROPHES)}]"
+    if ch.isdecimal():
+        digit = unicodedata.digit(ch)
+        return "[" + "".join(sorted({ch, str(digit), chr(_FULLWIDTH_ZERO + digit)})) + "]"
+    return re.escape(ch)
+
+
 def _normalise_value(value: str) -> str | None:
-    value = " ".join(value.replace(OBJECT_CHAR, " ").split())
+    value = " ".join(_ZERO_WIDTH.sub("", value.replace(OBJECT_CHAR, " ")).split())
     if len(value) < 3 or not any(ch.isalnum() for ch in value):
         return None
     return value
@@ -738,19 +897,27 @@ class _ValueRule:
     def build(cls, value: str) -> _ValueRule:
         nonspace = value.replace(" ", "")
         mostly_letters = sum(ch.isalpha() for ch in nonspace) * 2 > len(nonspace)
-        literal = r"\s+".join(re.escape(token) for token in value.split(" "))
-        alternatives = [_bounded(literal, value, mostly_letters)]
+        glue = f"{_ZERO_WIDTH_CLASS}*"
+        words = rf"(?:[\s_]|{_ZERO_WIDTH_CLASS})+" if mostly_letters else rf"(?:\s|{_ZERO_WIDTH_CLASS})+"
         compact = _strip_separators(value)
         flexible = sum(ch.isdigit() for ch in compact) >= 6
-        if flexible:
-            pattern = f"{_SEPARATOR_CLASS}*".join(re.escape(ch) for ch in compact)
-            alternatives.append(_bounded(pattern, compact, mostly_letters))
-        key = max(re.findall(r"\w+", value.lower()), key=len, default=value.lower())
+        alternatives: list[str] = []
+        for form in ("NFC", "NFD"):  # the text may be composed or decomposed
+            spelled = unicodedata.normalize(form, value)
+            literal = words.join(
+                glue.join(_char_pattern(ch) for ch in token) for token in spelled.split(" ")
+            )
+            alternatives.append(_bounded(literal, spelled, mostly_letters))
+            if flexible:
+                spelled = unicodedata.normalize(form, compact)
+                pattern = f"(?:{_SEPARATOR_CLASS}|{_ZERO_WIDTH_CLASS})*".join(_char_pattern(ch) for ch in spelled)
+                alternatives.append(_bounded(pattern, spelled, mostly_letters))
+        key = max(re.findall(r"\w+", _fold(value)), key=len, default=_fold(value))
         return cls(
             value,
             key,
-            compact.lower() if flexible else None,
-            re.compile("|".join(alternatives), re.IGNORECASE),
+            _strip_separators(_fold(value)) if flexible else None,
+            re.compile("|".join(dict.fromkeys(alternatives)), re.IGNORECASE),
         )
 
     @property
@@ -773,8 +940,9 @@ def _value_key(value: str) -> str | None:
     normal = _normalise_value(value)
     if normal is None:
         return None
-    compact = _strip_separators(normal).lower()
-    return compact if sum(ch.isdigit() for ch in compact) >= 6 else normal.lower()
+    folded = _fold(normal)
+    compact = _strip_separators(folded)
+    return compact if sum(ch.isdigit() for ch in compact) >= 6 else folded
 
 
 class _ValueMatcher:
@@ -819,7 +987,7 @@ class _ValueMatcher:
         """A matcher with only the rules that can occur somewhere in ``text``."""
         if "%" in text:
             text = f"{text}\n{unquote(text)}"
-        lower = text.lower()
+        lower = _fold(text)
         stripped = _strip_separators(lower)
         rules = [rule for rule in self.rules if rule.may_occur(lower, stripped)]
         return _ValueMatcher(rules=rules, protected=self.protected)
@@ -828,7 +996,7 @@ class _ValueMatcher:
         """Non-overlapping ``(start, end, value)`` matches, leftmost-longest first."""
         if not self.rules or not text:
             return []
-        lower = text.lower()
+        lower = _fold(text)
         stripped: str | None = None
         hits: list[tuple[int, int, str]] = []
         for rule in self.rules:
@@ -884,17 +1052,122 @@ def _checkable_attribute(part: str, element: Element, key: str, value: str) -> b
     local = key.rpartition("}")[2]
     if len(value) < 3 or local.startswith("rsid") or local in _PROTECTED_ATTRIBUTES:
         return False
-    if part.lower() == "[content_types].xml" or _SCHEMA_TOKEN.fullmatch(value):
+    if part.lower() == "[content_types].xml":
+        return False
+    free_text = (element.tag, local) in _FREE_TEXT_ATTRIBUTES or part.lower().startswith(_DATA_PART_PREFIXES)
+    if not free_text and _SCHEMA_TOKEN.fullmatch(value):
         return False
     if element.tag == REL:
         return local == "Target" and element.get("TargetMode") == "External"
     return element.tag != W_FONT  # font table entries are font names
 
 
-def _all_strings(root: Element, paragraphs: list[_Paragraph]) -> str:
+def _flat_paragraphs(root: Element) -> list[_Paragraph]:
+    """Paragraphs of text kept outside ``w:t``: DrawingML ``a:t`` runs (charts, SmartArt)
+    and ``w:delText`` runs (deletions in parts where changes are not accepted)."""
+    found: list[_Paragraph] = []
+    for element in root.iter(A_P, W_P):
+        tag = A_T if element.tag == A_P else W_DELTEXT
+        pieces: list[_Piece] = []
+        position = 0
+        for node in element.iter(tag):
+            if tag == W_DELTEXT and next(node.iterancestors(W_P), None) is not element:
+                continue  # belongs to a nested paragraph (text box)
+            text = node.text or ""
+            pieces.append(_Piece(node, position, position + len(text), True))
+            position += len(text)
+        if len(pieces) > 1:  # a single run is covered by the per-node scan
+            found.append(_Paragraph(element, pieces, "".join(node.element.text or "" for node in pieces)))
+    return found
+
+
+def _mixed_text_blocks(root: Element) -> list[Element]:
+    """Drawing text that is spread over nested elements outside WordprocessingML: an SVG ``<text>``
+    with ``<tspan>`` children, or the HTML-like content of a VML ``<v:textbox>``."""
+    blocks = []
+    for element in root.iter(SVG_TEXT, VML_TEXTBOX):
+        if len(element) == 0:
+            continue  # a single string: the per-node scan covers it
+        if element.tag == VML_TEXTBOX and next(element.iter(W_TXBX), None) is not None:
+            continue  # holds Word paragraphs, which are read as paragraphs
+        if next(element.iterancestors(SVG_TEXT, VML_TEXTBOX), None) is None:
+            blocks.append(element)
+    return blocks
+
+
+def _block_strings(block: Element) -> list[tuple[Element, bool]]:
+    """Every string inside a block in reading order, as ``(node, is_tail)``: the node's own text, or
+    the text that follows the node. Empty when the block is too large to be worth joining."""
+    slots: list[tuple[Element, bool]] = []
+    for event, node in etree.iterwalk(block, events=("start", "end", "comment", "pi")):
+        if event == "start":
+            slots.append((node, False))
+        elif node is not block:  # the end of a child, or a comment: the text that follows it
+            slots.append((node, True))
+        if len(slots) > MAX_BLOCK_STRINGS:
+            return []
+    return slots
+
+
+def _block_texts(block: Element) -> list[str]:
+    """The two readings of a block: its strings run together, and its strings as separate words."""
+    strings = [(node.tail if tail else node.text) or "" for node, tail in _block_strings(block)]
+    return ["".join(strings), " ".join(strings)]
+
+
+def _scan_block(part: str, block: Element, matcher: _ValueMatcher, fix: bool) -> list[dict[str, str]]:
+    """Find (and with ``fix`` replace) values that run across the strings of one drawing text block.
+
+    A name can be split over elements letter by letter ("Ja" + "ne Doe") or word by word, each word
+    positioned on its own ("Jane" + "Doe"), so the strings are read both run together and joined by
+    spaces. Values inside a single string are left to the per-node scan.
+    """
+    findings: list[dict[str, str]] = []
+    seen: set[tuple[int, int, int]] = set()
+    for separator in ("", " "):
+        slots = _block_strings(block)
+        strings = [(node.tail if tail else node.text) or "" for node, tail in slots]
+        starts, position = [], 0
+        for string in strings:
+            starts.append(position)
+            position += len(string) + len(separator)
+        changes: dict[int, list[tuple[int, int, str]]] = {}
+        for start, end, value in matcher.finditer(separator.join(strings)):
+            pieces = []  # (string index, local start, local end) of the characters the hit covers
+            k = max(bisect.bisect_right(starts, start) - 1, 0)
+            while k < len(starts) and starts[k] < end:
+                a, b = max(start, starts[k]) - starts[k], min(end, starts[k] + len(strings[k])) - starts[k]
+                if b > a:
+                    pieces.append((k, a, b))
+                k += 1
+            if len(pieces) < 2 or set(pieces) <= seen:
+                continue  # inside one string, or already found in the other reading
+            seen.update(pieces)
+            findings.append({"value": value, "part": part, "where": "text"})
+            for n, (k, a, b) in enumerate(pieces):
+                changes.setdefault(k, []).append((a, b, REDACTED if n == 0 else ""))
+        if not fix or not changes:
+            continue
+        for k, edits in changes.items():
+            node, tail = slots[k]
+            out, last = [], 0
+            for a, b, replacement in sorted(edits):
+                out += [strings[k][last:a], replacement]
+                last = b
+            new = "".join(out) + strings[k][last:]
+            if tail:
+                node.tail = new
+            else:
+                node.text = new
+        seen.clear()  # positions changed; the next reading starts from the rewritten strings
+    return findings
+
+
+def _all_strings(root: Element, paragraphs: list[_Paragraph], extra: Iterable[str] = ()) -> str:
     """Everything `_scan_tree` looks at -- joined paragraph texts, text and tail
     nodes, attribute values -- newline-joined, for the per-part pre-check."""
     strings = [paragraph.text for paragraph in paragraphs]
+    strings.extend(extra)
     for node in root.iter():
         strings += [node.text or "", node.tail or ""]
         if isinstance(node.tag, str):
@@ -910,8 +1183,14 @@ def _scan_tree(part: str, root: Element, matcher: _ValueMatcher, *, fix: bool) -
     one, without short numbers and skipping protected attributes.
     """
     findings: list[dict[str, str]] = []
+    _flatten_text_nodes(root)  # in memory; written only if a fix makes the part dirty
     paragraphs = [_read_paragraph(element) for element in root.iter(W_P)]
-    matcher = matcher.restrict(_all_strings(root, paragraphs))  # most parts drop out here
+    split_fields = [f for f in _field_structure(root)[0] if len(f.instr) > 1]
+    flat = _flat_paragraphs(root)
+    joined = [f.text for f in split_fields] + [paragraph.text for paragraph in flat]
+    blocks = _mixed_text_blocks(root)
+    block_texts = [text for block in blocks for text in _block_texts(block)]
+    matcher = matcher.restrict(_all_strings(root, paragraphs, joined + block_texts))  # most parts drop out here
     if not matcher:
         return findings
     covered: set[Element] = set()
@@ -924,6 +1203,20 @@ def _scan_tree(part: str, root: Element, matcher: _ValueMatcher, *, fix: bool) -
     markup = matcher.for_markup()
     if not markup:
         return findings
+    for paragraph in flat:  # runs of one a:p / deleted w:p, joined
+        covered.update(piece.element for piece in paragraph.pieces)
+        hits = markup.finditer(paragraph.text)
+        findings.extend({"value": v, "part": part, "where": "text"} for _, _, v in hits)
+        if fix and hits:
+            _rewrite(paragraph.pieces, [(s, e, REDACTED) for s, e, _ in hits])
+    for instruction, text in zip(split_fields, joined):  # one field code split over elements
+        covered.update(instruction.instr)
+        new, found = _scan_string(text, markup, fix)
+        findings.extend({"value": v, "part": part, "where": "text"} for v in found)
+        if fix and found:
+            _write_instruction(instruction.instr, new)
+    for block in blocks:  # an SVG <text> or VML text box: values running across its elements
+        findings.extend(_scan_block(part, block, markup, fix))
     for node in root.iter():
         is_element = isinstance(node.tag, str)
         if node.text and node not in covered and (is_element or node.tag is etree.Comment):
@@ -980,6 +1273,8 @@ class _Working:
                 dirty.add(part)
                 accepted += changes
                 marks_kept += marks
+            if _flatten_text_nodes(trees[part]):
+                dirty.add(part)
         tables = _TableIndex.build(trees[part] for part, _ in text_parts)
         segments: list[Segment] = []
         paragraphs: dict[str, _Paragraph] = {}
@@ -988,6 +1283,8 @@ class _Working:
                 paragraph = _read_paragraph(element)
                 if not paragraph.text.replace(OBJECT_CHAR, "").strip():
                     continue  # nothing analysable (empty, or only images/objects)
+                if len(segments) >= MAX_SEGMENTS:
+                    raise DocxRefused(f"too many paragraphs (more than {MAX_SEGMENTS:,})")
                 segment = Segment(
                     f"s{len(segments)}",
                     part,
@@ -1052,6 +1349,12 @@ class _Working:
             messages.append(f"{objects} embedded object(s) were not analysed or redacted.")
         if "word/glossary/document.xml" in names:
             messages.append("Building block (glossary) text was checked for known values only and was not analysed.")
+        if self.package.unreadable:
+            messages.append(
+                f"{len(self.package.unreadable)} SVG/VML drawing(s) could not be read as XML and were copied unchanged."
+            )
+        if opaque := len(self.package.opaque_parts()):
+            messages.append(f"{opaque} part(s) of other types were copied unchanged and not checked for personal data.")
         if self.marks_kept:
             messages.append(
                 f"{self.marks_kept} deleted paragraph mark(s) were accepted without merging the affected paragraphs."
@@ -1065,12 +1368,12 @@ class _Working:
 def _hyperlinks_touched(paragraph: _Paragraph, edits: list[Edit]) -> set[Element]:
     """Hyperlinks whose display text overlaps a redacted span."""
     links: set[Element] = set()
+    ends = [piece.end for piece in paragraph.pieces]
     for start, end, _ in edits:
-        for piece in paragraph.pieces:
-            if piece.start < end and piece.end > start:
-                link = _ancestor(piece.element, W_HYPERLINK, stop=paragraph.element)
-                if link is not None:
-                    links.add(link)
+        for i in _overlapping(paragraph.pieces, ends, start, end):
+            link = _ancestor(paragraph.pieces[i].element, W_HYPERLINK, stop=paragraph.element)
+            if link is not None:
+                links.add(link)
     return links
 
 
@@ -1118,27 +1421,170 @@ def _scrub_hyperlinks(work: _Working, matcher: _ValueMatcher, flagged: set[Eleme
     return unlinked
 
 
+def _rename_bookmarks(work: _Working, matcher: _ValueMatcher) -> int:
+    """Give bookmarks whose name holds a redacted value a neutral name, and follow every reference.
+
+    A bookmark name is an identifier that internal links and cross-reference fields point at. Replacing
+    it like ordinary text would leave a name Word does not allow, could give two bookmarks the same
+    name, and would break the references. Each such bookmark becomes ``Redacted1``, ``Redacted2`` and
+    so on, and links (``w:anchor``) and field codes (``REF``, ``PAGEREF``, ``HYPERLINK \\l``) are
+    changed to match. Returns the number of bookmarks renamed.
+    """
+    markup = matcher.for_markup()
+    if not markup:
+        return 0
+    bookmarks = [(part, element) for part, root in work.trees.items() for element in root.iter(W_BOOKMARK_START)]
+    taken = {(element.get(W_NAME) or "").lower() for _, element in bookmarks}
+    renamed: dict[str, str] = {}  # old name, lower-cased (Word compares names without case) -> new name
+    for part, element in bookmarks:
+        name = element.get(W_NAME) or ""
+        if name.lower() not in renamed:
+            if not name or not markup.search(name):
+                continue
+            number = len(renamed) + 1
+            while f"redacted{number}" in taken:
+                number += 1
+            taken.add(f"redacted{number}")
+            renamed[name.lower()] = f"Redacted{number}"
+        element.set(W_NAME, renamed[name.lower()])
+        work.dirty.add(part)
+    if not renamed:
+        return 0
+    names = "|".join(re.escape(old) for old in sorted(renamed, key=len, reverse=True))
+    reference = re.compile(rf"(?<![\w.])(?:{names})(?![\w.])", re.IGNORECASE)
+
+    def swap(match: re.Match[str]) -> str:
+        return renamed[match.group().lower()]
+
+    for part, root in work.trees.items():
+        for link in root.iter(W_HYPERLINK):
+            anchor = link.get(W_ANCHOR)
+            if anchor and anchor.lower() in renamed:
+                link.set(W_ANCHOR, renamed[anchor.lower()])
+                work.dirty.add(part)
+        for instruction in _field_structure(root)[0]:
+            new = reference.sub(swap, instruction.text)
+            if new != instruction.text:
+                _write_instruction(instruction.instr, new)
+                work.dirty.add(part)
+        for element in root.iter(W_FLDSIMPLE):
+            old = element.get(W_INSTR) or ""
+            new = reference.sub(swap, old)
+            if new != old:
+                element.set(W_INSTR, new)
+                work.dirty.add(part)
+    return len(renamed)
+
+
 def _scrub_instruction(text: str, matcher: _ValueMatcher) -> str:
     candidates = (text, unquote(text)) if "%" in text else (text,)
     for candidate in candidates:
         new, values = matcher.sub("REDACTED", candidate)
-        new, emails = _EMAIL.subn("REDACTED", new)
+        new, emails = _EMAIL.subn("REDACTED", new) if "@" in new else (new, 0)
         if values or emails:
             return new
     return text
 
 
+@dataclass(slots=True, eq=False)
+class _Field:
+    """A complex field: its ``w:instrText`` elements (the instruction is their joined text)."""
+
+    instr: list[Element] = field(default_factory=list)
+    in_result: bool = False  # past the "separate" marker
+
+    @property
+    def text(self) -> str:
+        return "".join(element.text or "" for element in self.instr)
+
+
+_Chain = tuple  # (field, enclosing chain) | None: the fields an element is a result of
+
+
+def _field_structure(root: Element) -> tuple[list[_Field], dict[Element, _Chain]]:
+    """Complex fields of one part, in document order (they nest and may span paragraphs).
+
+    Returns the fields and, for every text / character element lying in a field's
+    *result* (between ``separate`` and ``end``), the chain of fields it is a result of
+    (see :func:`_chain_fields`). Chains are shared, so unclosed or deeply nested
+    fields cost linear time and memory.
+    """
+    fields: list[_Field] = []
+    stack: list[_Field] = []
+    chains: list[_Chain | None] = []  # chains[i]: result chain while stack[i] is innermost
+    results: dict[Element, _Chain] = {}
+    for node in root.iter(W_FLDCHAR, W_INSTRTEXT, W_T, M_T, *_CHAR_PIECES):
+        if node.tag == W_FLDCHAR:
+            kind = node.get(W_FLDCHARTYPE)
+            if kind == "begin":
+                fields.append(_Field())
+                stack.append(fields[-1])
+                chains.append(chains[-1] if chains else None)
+            elif kind == "separate" and stack:
+                if not stack[-1].in_result:
+                    stack[-1].in_result = True
+                    chains[-1] = (stack[-1], chains[-2] if len(chains) > 1 else None)
+            elif kind == "end" and stack:
+                stack.pop()
+                chains.pop()
+        elif node.tag == W_INSTRTEXT:
+            if stack and not stack[-1].in_result:
+                stack[-1].instr.append(node)
+            else:  # instruction outside any open field: treat as a field of its own
+                fields.append(_Field([node]))
+        elif chains and chains[-1] is not None:
+            results[node] = chains[-1]
+    return fields, results
+
+
+def _chain_fields(chain: _Chain | None) -> Iterable[_Field]:
+    """The fields of a result chain, innermost first."""
+    while chain is not None:
+        yield chain[0]
+        chain = chain[1]
+
+
+def _write_instruction(elements: list[Element], text: str) -> None:
+    """Write a rewritten instruction back over its elements.
+
+    Only the changed middle (after the common prefix, before the common suffix) is
+    rewritten, so text on either side of a nested field stays on its own side.
+    """
+    pieces, position = [], 0
+    for element in elements:
+        length = len(element.text or "")
+        pieces.append(_Piece(element, position, position + length, True))
+        position += length
+    old = "".join(element.text or "" for element in elements)
+    prefix = 0
+    while prefix < min(len(old), len(text)) and old[prefix] == text[prefix]:
+        prefix += 1
+    suffix = 0
+    while suffix < min(len(old), len(text)) - prefix and old[-1 - suffix] == text[-1 - suffix]:
+        suffix += 1
+    if old:
+        if prefix >= len(old) - suffix:  # text was only inserted: widen by one unchanged character to anchor it
+            prefix, suffix = (prefix - 1, suffix) if prefix else (prefix, suffix - 1)
+        _rewrite(pieces, [(prefix, len(old) - suffix, text[prefix:len(text) - suffix])])
+        return
+    _set_text(elements[0], text)  # nothing was there before
+
+
 def _scrub_fields(work: _Working, matcher: _ValueMatcher) -> int:
-    """Scrub redacted values and e-mail addresses from field codes."""
+    """Scrub redacted values and e-mail addresses from field codes.
+
+    The instruction of a complex field is scrubbed as one string, so a value split
+    over several ``w:instrText`` elements is still found.
+    """
     matcher = matcher.for_markup()  # field switches and bookmark ids hold short numbers
     scrubbed = 0
     for part, _ in work.text_parts:
         root = work.trees[part]
-        for element in root.iter(W_INSTRTEXT):
-            old = element.text or ""
+        for instruction in _field_structure(root)[0]:
+            old = instruction.text
             new = _scrub_instruction(old, matcher)
             if new != old:
-                _set_text(element, new)
+                _write_instruction(instruction.instr, new)
                 scrubbed += 1
                 work.dirty.add(part)
         for element in root.iter(W_FLDSIMPLE):
@@ -1149,6 +1595,64 @@ def _scrub_fields(work: _Working, matcher: _ValueMatcher) -> int:
                 scrubbed += 1
                 work.dirty.add(part)
     return scrubbed
+
+
+def _neutralise_hyperlink_instruction(instruction: str) -> str:
+    """Replace the URL argument of a HYPERLINK instruction (switches and their arguments kept)."""
+    if (head := _HYPERLINK_FIELD.match(instruction)) is None:
+        return instruction
+    skip = False
+    for token in _FIELD_TOKEN.finditer(instruction, head.end()):
+        text = token.group()
+        if text.startswith("\\"):
+            skip = text.lower() in _SWITCHES_WITH_ARGUMENT
+            continue
+        if skip:
+            skip = False
+            continue
+        if text.strip('"') == REDACTED_URL:
+            return instruction
+        return f'{instruction[:token.start()]}"{REDACTED_URL}"{instruction[token.end():]}'
+    return instruction
+
+
+def _hyperlink_fields_touched(
+    paragraph: _Paragraph, edits: list[Edit], results: dict[Element, _Chain]
+) -> tuple[list[_Field], list[Element]]:
+    """HYPERLINK fields (complex, ``w:fldSimple``) whose *result* text overlaps an edit."""
+    complex_fields: dict[_Field, None] = {}
+    simple_fields: dict[Element, None] = {}
+    ends = [piece.end for piece in paragraph.pieces]
+    for start, end, _ in edits:
+        for i in _overlapping(paragraph.pieces, ends, start, end):
+            element = paragraph.pieces[i].element
+            for instruction in _chain_fields(results.get(element)):
+                if _HYPERLINK_FIELD.match(instruction.text):
+                    complex_fields[instruction] = None
+            for ancestor in element.iterancestors(W_FLDSIMPLE):
+                if _HYPERLINK_FIELD.match(ancestor.get(W_INSTR) or ""):
+                    simple_fields[ancestor] = None
+    return list(complex_fields), list(simple_fields)
+
+
+def _unlink_hyperlink_fields(
+    work: _Working, complex_fields: dict[_Field, str], simple_fields: dict[Element, str]
+) -> int:
+    """Point flagged HYPERLINK fields at a dummy URL, like flagged ``w:hyperlink`` elements."""
+    unlinked = 0
+    for instruction, part in complex_fields.items():
+        old = instruction.text
+        if (new := _neutralise_hyperlink_instruction(old)) != old:
+            _write_instruction(instruction.instr, new)
+            work.dirty.add(part)
+            unlinked += 1
+    for element, part in simple_fields.items():
+        old = element.get(W_INSTR) or ""
+        if (new := _neutralise_hyperlink_instruction(old)) != old:
+            element.set(W_INSTR, new)
+            work.dirty.add(part)
+            unlinked += 1
+    return unlinked
 
 
 def _package_target(work: _Working, type_suffix: str) -> str | None:
@@ -1216,7 +1720,8 @@ def _remove_thumbnail(work: _Working) -> set[str]:
     if rels_root is not None:
         for rel in list(rels_root.iter(REL)):
             if rel.get("Type", "").endswith("/thumbnail"):
-                if target := work.package.find(rel.get("Target", "")):
+                target = work.package.find(rel.get("Target", ""))
+                if target and target.lower().startswith("docprops/"):  # never delete other parts
                     removed.add(target)
                 _remove(rel)
                 work.dirty.add(rels_name)
@@ -1257,11 +1762,11 @@ def _verify_residuals(work: _Working, matcher: _ValueMatcher) -> int:
 
 
 def _clone_info(info: zipfile.ZipInfo) -> zipfile.ZipInfo:
+    """Copy the entry header; the per-entry comment is dropped on purpose (it can hold names)."""
     clone = zipfile.ZipInfo(info.filename, date_time=info.date_time)
     clone.compress_type = info.compress_type
     clone.external_attr = info.external_attr
     clone.create_system = info.create_system
-    clone.comment = info.comment
     return clone
 
 
@@ -1352,6 +1857,9 @@ class DocxDocument:
         warnings = list(self.warnings)
         values = [str(v) for v in redacted_values]
         flagged: set[Element] = set()
+        flagged_fields: dict[_Field, str] = {}
+        flagged_simple: dict[Element, str] = {}
+        field_results: dict[str, dict[Element, _Chain]] = {}
         by_location: Counter[str] = Counter()
 
         for segment_id, raw_edits in replacements.items():
@@ -1368,12 +1876,21 @@ class DocxDocument:
                 continue
             values.extend(segment.text[start:end] for start, end, _ in edits)
             flagged |= _hyperlinks_touched(paragraph, edits)
+            if segment.part not in field_results:
+                field_results[segment.part] = _field_structure(work.trees[segment.part])[1]
+            touched_fields, touched_simple = _hyperlink_fields_touched(
+                paragraph, edits, field_results[segment.part]
+            )
+            flagged_fields.update(dict.fromkeys(touched_fields, segment.part))
+            flagged_simple.update(dict.fromkeys(touched_simple, segment.part))
             _rewrite(paragraph.pieces, edits)
             work.dirty.add(segment.part)
             by_location[segment.location] += len(edits)
 
         matcher = _ValueMatcher.for_redaction(values, keep_values)
+        bookmarks = _rename_bookmarks(work, matcher)  # before the text passes, which would overwrite the names
         hyperlinks = _scrub_hyperlinks(work, matcher, flagged)
+        hyperlinks += _unlink_hyperlink_fields(work, flagged_fields, flagged_simple)
         fields = _scrub_fields(work, matcher)
         cleared, authors, removed = _scrub_metadata(work) if scrub_metadata else ([], 0, set())
         residual_fixes = _verify_residuals(work, matcher)  # always last, before zipping
@@ -1383,6 +1900,7 @@ class DocxDocument:
             "by_location": dict(by_location),
             "hyperlinks_unlinked": hyperlinks,
             "fields_scrubbed": fields,
+            "bookmarks_renamed": bookmarks,
             "metadata_cleared": cleared,
             "comment_authors_anonymised": authors,
             "thumbnail_removed": bool(removed),
@@ -1413,7 +1931,12 @@ def extract_text_raw(data: bytes) -> str:
     package = _read_package(data)
     chunks: list[str] = []
     for name in package.xml_parts:
-        root = _parse_xml(name, package.raw[name])
+        try:
+            root = _parse_xml(name, package.raw[name])
+        except DocxError:
+            if _is_optional_xml(name, package.content_type(name)):
+                continue
+            raise
         _dump_text(root, chunks)
         for element in root.iter(etree.Element):
             chunks.extend(f"{value}\n" for value in element.attrib.values())
@@ -1437,5 +1960,11 @@ def find_residuals(data: bytes, values: Iterable[str]) -> list[dict]:
     package = _read_package(data)
     findings: list[dict] = []
     for name in package.xml_parts:
-        findings.extend(_scan_tree(name, _parse_xml(name, package.raw[name]), matcher, fix=False))
+        try:
+            root = _parse_xml(name, package.raw[name])
+        except DocxError:
+            if _is_optional_xml(name, package.content_type(name)):
+                continue
+            raise
+        findings.extend(_scan_tree(name, root, matcher, fix=False))
     return findings

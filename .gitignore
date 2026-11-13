@@ -15,3 +15,23 @@ models/*
 
 # generated sample outputs (inputs are committed)
 samples/*_redacted.docx
+
+# desktop application: build environment and PyInstaller output (see packaging/)
+.venv-build/
+build/
+dist/
+
+# never committed: secrets, logs, and files of editors, tools and the operating system
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+*.log
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,27 @@
+# Build environment of the desktop application (Windows, CPU-only, Python 3.12): the packages chosen by hand.
+#
+# requirements.txt is generated from this file by packaging\pin.ps1. It pins every package, including
+# indirect ones, to an exact version and file checksum, so a build always uses the same, verified files.
+# The versions are those of uv.lock, so the packaged application runs the same libraries as the project
+# environment; only PyTorch differs in being the CPU build from PyTorch's own package index.
+#
+# After changing a version here or in uv.lock, run:  powershell -ExecutionPolicy Bypass -File packaging\pin.ps1
+
+# model
+torch==2.14.1+cpu
+transformers==5.22.2
+tokenizers==0.23.3
+safetensors==0.8.0
+huggingface-hub==1.33.0
+numpy==2.5.4
+
+# Word engine
+lxml==6.1.3
+
+# window
+pywebview==6.2.1
+
+# packaging
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.10
+pillow==13.0.0  # only for packaging/make_icon.py

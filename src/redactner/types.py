@@ -1,8 +1,10 @@
-"""Core data types shared by detectors, the DOCX engine, evaluation and the API."""
+"""Core data types and limits shared by detectors, the DOCX engine, evaluation and the application."""
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+
+MAX_TEXT_CHARS = 5_000_000  # most text analysed in one go: a hostile file must not make the process allocate gigabytes
 
 
 @dataclass(frozen=True, slots=True)

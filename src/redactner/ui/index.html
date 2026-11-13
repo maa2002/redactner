@@ -4,12 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta name="redactner-token" content="__REDACTNER_TOKEN__">
   <title>RedactNER</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/styles.css">
-  <script src="/static/mock.js" defer></script>
-  <script src="/static/app.js" defer></script>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
 </head>
 <body>
 <div class="app">
@@ -24,8 +22,6 @@
         <span id="doc-title" class="doc-title is-empty">No Document</span>
       </span>
       <span id="tb-updating" class="tb-updating" role="status" hidden><span class="spinner" aria-hidden="true"></span><span class="tb-updating-text">Updating…</span></span>
-      <span id="mock-badge" class="mock-badge" tabindex="0" hidden
-            data-tip-title="Mock Backend" data-tip="Sample data is served inside the browser; nothing is sent to a server.">Mock</span>
     </div>
 
     <div class="tb-center">
@@ -82,7 +78,7 @@
             <p class="drop-sub">Drop A .docx File Anywhere On The Page</p>
             <div class="drop-actions">
               <button id="empty-open" type="button" class="btn btn-primary">Choose Document</button>
-              <button id="empty-sample" type="button" class="btn" hidden>Load Sample Document</button>
+              
             </div>
             <p id="drop-note" class="drop-note">Up To <span id="max-mb">20</span> MB · Processed On This Computer</p>
           </div>
@@ -132,7 +128,8 @@
               <div id="residual-value" class="residual-value">0 Leaks</div>
             </div>
           </div>
-          <p id="report-stale" class="pane-note" hidden>Edited Since This Report · Download Again To Update</p>
+          <p id="report-stale" class="pane-note" hidden>Edited Since This Report · The Saved File Does Not Include Your Latest Changes</p>
+          <p class="pane-note">Check the saved file before you share it. Automated redaction can miss personal information.</p>
           <dl id="report-stats" class="kv"></dl>
           <div id="report-meta-wrap">
             <h4 class="pane-h4">Metadata Cleared</h4>
@@ -203,7 +200,7 @@
               <button id="confidence-reset" type="button" class="link-btn" hidden>Reset</button>
               <output id="confidence-value" for="confidence" class="range-value">Tuned</output>
             </div>
-            <input id="confidence" class="range" type="range" min="0.01" max="0.95" step="0.01" value="0.5" disabled>
+            <input id="confidence" class="range" type="range" min="0.001" max="0.95" step="0.001" value="0.5" disabled>
             <div class="range-scale" aria-hidden="true"><span>Broader</span><span>Stricter</span></div>
           </div>
 

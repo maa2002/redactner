@@ -17,22 +17,77 @@
 
 from __future__ import annotations
 
+import bisect
 import contextlib
 import json
 import os
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import torch
-from transformers import AutoModelForTokenClassification, AutoTokenizer
+from tokenizers import Tokenizer
+from transformers import AutoModelForTokenClassification
 
-from .types import Span
+from .types import MAX_TEXT_CHARS, Span
 from .weights import join_split_files
 
 META_FILE = "redactner_meta.json"
+TOKENIZER_FILE = "tokenizer.json"
 EDGE_PUNCT = ",;:"
+_ALNUM_RUN = re.compile(r"[^\W_]+")  # unbroken runs of letters and digits: the characters str.isalnum() accepts
+_SURROGATES = re.compile("[\ud800-\udfff]")
+
+
+def clean_text(text: str) -> str:
+    """Replace lone surrogates with U+FFFD one for one (the tokenizer rejects them; offsets stay put)."""
+    return _SURROGATES.sub("�", text)
+
+
+def load_tokenizer(model_dir: Path, max_len: int, stride: int) -> Tokenizer:
+    """The tokenizer exactly as it was saved with the model, set to cut long text into overlapping windows.
+
+    ``tokenizer.json`` holds the whole pipeline the model was trained with: how characters are normalised
+    and how text is split into tokens. It is read as it is. The model library is not asked to rebuild
+    it, because another version of that library can treat characters such as non-breaking spaces
+    differently, and the model would then see text unlike what it was trained on.
+    """
+    path = Path(model_dir) / TOKENIZER_FILE
+    if not path.exists():
+        raise FileNotFoundError(f"{path} is missing; the model folder must hold the tokenizer saved with the model.")
+    tokenizer = Tokenizer.from_file(str(path))
+    tokenizer.enable_truncation(max_length=max_len, stride=stride)
+    tokenizer.no_padding()
+    return tokenizer
+
+
+def validate_meta(meta: dict) -> None:
+    """Check the ranges of the settings read from ``redactner_meta.json``; a threshold of 0 would redact nothing."""
+    def number(field: str, value: object) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{META_FILE}: '{field}' must be a number, got {value!r}")
+        return float(value)
+
+    if "threshold" in meta:
+        t = number("threshold", meta["threshold"])
+        if not 0.5 <= t < 1:
+            raise ValueError(f"{META_FILE}: 'threshold' must be in [0.5, 1), got {t}")
+    cats = meta.get("category_thresholds") or {}
+    if not isinstance(cats, dict):
+        raise ValueError(f"{META_FILE}: 'category_thresholds' must be an object")
+    for key, value in cats.items():
+        t = number(f"category_thresholds.{key}", value)
+        if not 0.5 <= t < 1:
+            raise ValueError(f"{META_FILE}: 'category_thresholds.{key}' must be in [0.5, 1), got {t}")
+    max_len = number("max_len", meta["max_len"]) if "max_len" in meta else 512
+    if not 16 <= max_len <= 8192 or max_len != int(max_len):
+        raise ValueError(f"{META_FILE}: 'max_len' must be an integer in [16, 8192], got {max_len}")
+    if "stride" in meta:
+        stride = number("stride", meta["stride"])
+        if not 0 <= stride < max_len or stride != int(stride):
+            raise ValueError(f"{META_FILE}: 'stride' must be an integer in [0, max_len), got {stride}")
 
 
 def default_device() -> str:
@@ -54,10 +109,16 @@ class TokenClassifierDetector:
         self.model_dir = Path(model_dir)
         meta_path = self.model_dir / META_FILE
         self.meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+        if not isinstance(self.meta, dict):
+            raise ValueError(f"{META_FILE} must contain a JSON object")
+        validate_meta(self.meta)
         self.device = torch.device(device or os.environ.get("REDACTNER_DEVICE") or default_device())
         join_split_files(self.model_dir)  # large weight files are stored in parts in the repository
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
-        self.model = AutoModelForTokenClassification.from_pretrained(self.model_dir).to(self.device).eval()
+        # The exported weights are stored in half precision to keep the files small. They are loaded as
+        # full precision, which is what the model was evaluated with: half precision is very slow on a
+        # processor, and on a graphics card the forward pass chooses its own precision below.
+        self.model = (AutoModelForTokenClassification.from_pretrained(self.model_dir, dtype=torch.float32)
+                      .to(self.device).eval())
         self.threshold = threshold if threshold is not None else float(self.meta.get("threshold", 0.5))
         # optional per-category thresholds tuned on the development set (used unless a threshold is given)
         self.category_thresholds = {k: float(v) for k, v in (self.meta.get("category_thresholds") or {}).items()}
@@ -65,6 +126,11 @@ class TokenClassifierDetector:
         self.max_len = max_len or int(self.meta.get("max_len", 512))
         self.stride = stride or int(self.meta.get("stride", 128))
         self.batch_size = batch_size
+        self.tokenizer = load_tokenizer(self.model_dir, self.max_len, self.stride)
+        pad_id = self.model.config.pad_token_id
+        if pad_id is None:
+            pad_id = next((i for i in map(self.tokenizer.token_to_id, ("[PAD]", "<pad>")) if i is not None), 0)
+        self.pad_id = int(pad_id)
         base_model = self.meta.get("model_name")  # e.g. "answerdotai/ModernBERT-large" -> "ModernBERT-large"
         self.name = base_model.split("/")[-1] if base_model else self.meta.get("run_name", self.model_dir.name)
 
@@ -79,23 +145,27 @@ class TokenClassifierDetector:
     # -- probabilities -----------------------------------------------------------------------
     @torch.inference_mode()
     def token_probs(self, text: str) -> TokenProbs:
-        enc = self.tokenizer(text, truncation=True, max_length=self.max_len, stride=self.stride,
-                             return_overflowing_tokens=True, return_offsets_mapping=True)
-        n_windows = len(enc["input_ids"])
+        text = clean_text(text)
+        first = self.tokenizer.encode(text)
+        windows = [first, *first.overflowing]  # overlapping windows of at most max_len tokens
         sums: dict[tuple[int, int], np.ndarray] = {}
         counts: dict[tuple[int, int], int] = {}
-        for b in range(0, n_windows, self.batch_size):
-            batch = self.tokenizer.pad({"input_ids": enc["input_ids"][b:b + self.batch_size],
-                                        "attention_mask": enc["attention_mask"][b:b + self.batch_size]},
-                                       return_tensors="pt")
-            batch = {k: v.to(self.device) for k, v in batch.items()}
+        for b in range(0, len(windows), self.batch_size):
+            chunk = windows[b:b + self.batch_size]
+            longest = max(len(window.ids) for window in chunk)
+            input_ids = torch.full((len(chunk), longest), self.pad_id, dtype=torch.long)
+            attention_mask = torch.zeros((len(chunk), longest), dtype=torch.long)
+            for row, window in enumerate(chunk):  # shorter windows are padded on the right
+                input_ids[row, :len(window.ids)] = torch.tensor(window.ids, dtype=torch.long)
+                attention_mask[row, :len(window.ids)] = 1
+            batch = {"input_ids": input_ids.to(self.device), "attention_mask": attention_mask.to(self.device)}
             amp = (torch.autocast("cuda", dtype=torch.bfloat16) if self.device.type == "cuda"
                    else contextlib.nullcontext())
             with amp:
                 logits = self.model(**batch).logits
             probs = torch.softmax(logits.float(), dim=-1).cpu().numpy()
-            for w in range(probs.shape[0]):
-                for t, (s, e) in enumerate(enc["offset_mapping"][b + w]):
+            for w, window in enumerate(chunk):
+                for t, (s, e) in enumerate(window.offsets):
                     if s == e:
                         continue
                     key = (s, e)
@@ -114,6 +184,9 @@ class TokenClassifierDetector:
     def detect(self, text: str, threshold: float | None = None) -> list[Span]:
         if not text.strip():
             return []
+        if len(text) > MAX_TEXT_CHARS:
+            raise ValueError(f"document text is too long to analyse ({len(text):,} characters; "
+                             f"the limit is {MAX_TEXT_CHARS:,})")
         tp = self.token_probs(text)
         return self.decode(text, tp, threshold)
 
@@ -187,16 +260,30 @@ def snap_to_words(text: str, spans: list[Span]) -> list[Span]:
     extension are merged; the label of the more confident span is kept.
     """
     out: list[Span] = []
+    starts: list[int] | None = None
+    ends: list[int] = []
+
+    def run_of(pos: int) -> tuple[int, int]:
+        """The unbroken run of letters and digits around ``pos``. The runs are found once, on first
+        use, so many spans inside one very long run (a hostile blob of text) stay cheap."""
+        nonlocal starts, ends
+        if starts is None:
+            found = [m.span() for m in _ALNUM_RUN.finditer(text)]
+            starts, ends = [a for a, _ in found], [b for _, b in found]
+        k = bisect.bisect_right(starts, pos) - 1
+        return starts[k], ends[k]
+
     for sp in sorted(spans, key=lambda x: x.start):
         s, e = sp.start, sp.end
         while s < e and (text[s].isspace() or text[s] in EDGE_PUNCT):
             s += 1
         while e > s and (text[e - 1].isspace() or text[e - 1] in EDGE_PUNCT):
             e -= 1
-        while 0 < s < e and text[s - 1].isalnum() and text[s].isalnum():
-            s -= 1
-        while s < e < len(text) and text[e].isalnum() and text[e - 1].isalnum():
-            e += 1
+        # a span that starts or ends inside a word grows to the whole word, however long the word is
+        if 0 < s < e and text[s - 1].isalnum() and text[s].isalnum():
+            s = run_of(s)[0]
+        if s < e < len(text) and text[e].isalnum() and text[e - 1].isalnum():
+            e = run_of(e - 1)[1]
         if e <= s or not any(ch.isalnum() for ch in text[s:e]):
             continue  # nothing to redact: spans of punctuation alone carry no personal information
         if out and s < out[-1].end:

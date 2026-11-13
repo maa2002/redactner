@@ -3,11 +3,11 @@
  *
  * Security: document text is untrusted. Every document-derived node is built with
  * createElement/textContent (never innerHTML); colours go through CSSOM (style.setProperty),
- * so the page runs under the server's strict CSP. Replacement tags are rendered with CSS
+ * so the page runs under a strict Content-Security-Policy. Replacement tags are rendered with CSS
  * `content: attr(data-rep)`, so the DOM text of a paragraph always equals the segment text;
  * which keeps selection offsets exact in every view.
  *
- * Offsets: the server counts Python code points; the DOM counts UTF-16 units. Segments carry
+ * Offsets: the application counts Python code points; the DOM counts UTF-16 units. Segments carry
  * conversion maps (built only when the text contains astral characters such as emoji).
  */
 (function () {
@@ -16,7 +16,6 @@
   // ===================================================================== constants
   const API = '/api/v1';
   const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  const TOKEN_PLACEHOLDER = '__REDACTNER_TOKEN__';
   const MASK = '█████'; // must match operators.MASK
   const DEBOUNCE_MS = 500;
   const TAB_KEY = 'redactner.inspectorTab'; // per-viewer convenience only
@@ -47,8 +46,6 @@
   // ===================================================================== state
   /** The single source of truth for the page. */
   const state = {
-    mock: false,                 // ?mock=1 → window.RedactNERMock instead of fetch
-    token: '',                   // X-RedactNER-Token from <meta name="redactner-token">
     config: null,                // GET /config (normalised)
     labelInfo: new Map(),        // label -> {name, color, description}
     options: { preset: 'custom', labels: new Set(), threshold: null, mode: 'label' }, // null = tuned thresholds
@@ -69,13 +66,13 @@
     replacements: new Map(),     // span id -> live replacement text ([PERSON_1] / █████)
     report: null,                // last redact report
     reportStale: false,          // review/options changed after the report
+    reviewRevision: 0,           // bumped by every change to the review (see markReviewChanged)
     downloadUrl: '',
     busy: { upload: false, analyze: false, redact: false, download: false },
     pendingSelection: null,      // {segId, uStart, uEnd} behind "Redact Selection As"
   };
 
   const ui = {};
-  let transport = null;
   let markEls = new Map();       // span id -> .rd element on the page
   let paraEls = new Map();       // segment id -> paragraph element
   const spanOfEl = new WeakMap();
@@ -90,6 +87,7 @@
   const $ = (id) => document.getElementById(id);
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
   const round2 = (v) => Math.round(v * 100) / 100;
+  const round3 = (v) => Math.round(v * 1000) / 1000;
   const fmtInt = (n) => Number(n || 0).toLocaleString();
   const fmtScore = (s) => (Number.isFinite(Number(s)) ? Number(s).toFixed(2) : 'n/a');
   const plural = (n, one, many) => `${fmtInt(n)} ${Number(n) === 1 ? one : many}`;
@@ -262,8 +260,55 @@
     return `Request failed (HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''})`;
   }
 
+  // ===================================================================== application bridge
+  /** The two functions the desktop application attaches to this page (window.pywebview.api). */
+  function bridge() {
+    const fns = window.pywebview && window.pywebview.api;
+    return fns && typeof fns.request === 'function' && typeof fns.save_redacted === 'function' ? fns : null;
+  }
+
+  /** Resolves once the application has attached its functions. */
+  function bridgeReady(timeoutMs = 20000) {
+    return new Promise((resolve, reject) => {
+      const started = Date.now();
+      const check = () => {
+        if (bridge()) resolve();
+        else if (Date.now() - started > timeoutMs) reject(new Error('The application did not respond.'));
+        else setTimeout(check, 50);
+      };
+      check();
+    });
+  }
+
+  /** Base64 content of a blob, which is how a file is handed to the application. */
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+      reader.onerror = () => reject(reader.error || new Error('The file could not be read.'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
+   * A fetch-shaped call into the application. It uses the paths and JSON of an HTTP API, but the
+   * call goes straight to Python inside the same program: no server, no network.
+   */
+  async function transport(url, init = {}) {
+    let payload = null;
+    if (init.body instanceof Blob) {
+      payload = { base64: await blobToBase64(init.body), filename: init.body.name || 'document.docx' };
+    } else if (typeof init.body === 'string') {
+      payload = JSON.parse(init.body);
+    }
+    const result = await bridge().request(init.method || 'GET', url, payload);
+    const status = result && Number.isInteger(result.status) ? result.status : 500;
+    const text = result && result.body !== undefined && result.body !== null ? JSON.stringify(result.body) : '';
+    return new Response(text, { status, headers: { 'Content-Type': 'application/json' } });
+  }
+
   async function apiRequest(url, { method = 'GET', json, body, headers = {}, raw = false } = {}) {
-    const init = { method, cache: 'no-store', headers: Object.assign({ 'X-RedactNER-Token': state.token }, headers) };
+    const init = { method, headers: Object.assign({}, headers) };
     if (json !== undefined) {
       init.headers['Content-Type'] = 'application/json';
       init.body = JSON.stringify(json);
@@ -274,16 +319,14 @@
     try {
       res = await transport(url, init);
     } catch (err) {
-      throw new ApiError(0, state.mock
-        ? `Mock backend failed: ${err && err.message ? err.message : err}`
-        : 'Cannot reach the RedactNER server. Is it still running?');
+      throw new ApiError(0, `RedactNER could not complete the request: ${err && err.message ? err.message : err}`);
     }
     if (!res.ok) throw new ApiError(res.status, await errorDetail(res));
     if (raw) return res;
     if (res.status === 204) return null;
     const text = await res.text();
     if (!text) return null;
-    try { return JSON.parse(text); } catch (_) { throw new ApiError(res.status, 'The server sent an unexpected (non-JSON) response.'); }
+    try { return JSON.parse(text); } catch (_) { throw new ApiError(res.status, 'The application sent an unexpected response.'); }
   }
 
   const docUrl = (id, suffix = '') => `${API}/documents/${encodeURIComponent(id)}${suffix}`;
@@ -296,7 +339,6 @@
     }),
     analyze: (id, req) => apiRequest(docUrl(id, '/analyze'), { method: 'POST', json: req }),
     redact: (id, req) => apiRequest(docUrl(id, '/redact'), { method: 'POST', json: req }),
-    download: (url) => apiRequest(url, { raw: true }),
     remove: (id) => apiRequest(docUrl(id), { method: 'DELETE' }),
   };
 
@@ -517,18 +559,18 @@
   }
 
   function defaultConfidence() {
-    return clamp(round2(Number(state.config && state.config.default_threshold) || 0.5), 0.01, 0.95);
+    return clamp(round3(Number(state.config && state.config.default_threshold) || 0.5), 0.001, 0.95);
   }
 
   /** The slider shows "Tuned" until it is moved: the model then applies the thresholds tuned on held-out data. */
   function showConfidence() {
     const tuned = state.options.threshold === null;
-    ui.confidenceValue.textContent = tuned ? 'Tuned' : state.options.threshold.toFixed(2);
+    ui.confidenceValue.textContent = tuned ? 'Tuned' : state.options.threshold.toFixed(3);
     ui.confidenceReset.hidden = tuned;
   }
 
   function onConfidenceInput() {
-    state.options.threshold = round2(Number(ui.confidence.value));
+    state.options.threshold = round3(Number(ui.confidence.value));
     showConfidence();
     optionsChanged();
   }
@@ -544,8 +586,8 @@
     if (!event.target || event.target.name !== 'mode') return;
     state.options.mode = event.target.value;
     if (state.analysis) {
-      refreshReplacements(true); // instant: no server call
-      if (state.report) state.reportStale = true;
+      refreshReplacements(true); // instant: worked out in the page
+      markReviewChanged();
       renderReview();
     }
     updateUI();
@@ -621,7 +663,7 @@
   async function handleFile(file) {
     if (!file) return;
     if (state.busy.upload || state.busy.redact) { toast('Please wait for the current step to finish.', 'warn'); return; }
-    if (!state.config) { toast('Still connecting to the RedactNER server…', 'warn'); return; }
+    if (!state.config) { toast('RedactNER is still starting…', 'warn'); return; }
     const problem = validateFile(file);
     if (problem) { toast(problem, 'error'); return; }
 
@@ -678,7 +720,7 @@
     if (!doc) return;
     try {
       await api.remove(doc.doc_id);
-      toast('Document closed and deleted from the local server.', 'success', 3500);
+      toast('Document closed and removed from memory.', 'success', 3500);
     } catch (err) {
       if (err.status !== 404) toastError(err, 'Could Not Delete The Document');
     }
@@ -786,7 +828,7 @@
         if (match) twinEntity.set(e.id, match);
       }
     }
-    return { segments, segById, entities, entityById, entitiesBySeg, twinOf, hiddenTwins, twinEntity, elapsed_ms: res ? res.elapsed_ms : undefined };
+    return { segments, segById, entities, entityById, entitiesBySeg, twinOf, hiddenTwins, twinEntity, analysisId: res ? res.analysis_id : undefined, elapsed_ms: res ? res.elapsed_ms : undefined };
   }
 
   const spanKey = (e) => `${e.segment_id}|${e.start}|${e.end}|${e.label}`;
@@ -810,7 +852,7 @@
       const seg = state.analysis.segById.get(u.segment_id);
       if (seg && !seg.hidden && seg.text.slice(u.uStart, u.uEnd) === u.text) addUserSpan(seg.id, u.uStart, u.uEnd, u.label);
     }
-    if (state.report) state.reportStale = true;
+    markReviewChanged();
     jumpIndex.clear();
   }
 
@@ -828,7 +870,7 @@
   async function startAnalysis(force) {
     if (!state.doc) return;
     if (state.busy.analyze || state.busy.upload || state.busy.redact || state.busy.download) {
-      state.analysisQueued = true; // one request at a time keeps the server's stored analysis in step
+      state.analysisQueued = true; // one request at a time keeps the application's stored analysis in step
       return;
     }
     if (!force && state.analysis && !isStale()) { updateUI(); return; }
@@ -1214,6 +1256,12 @@
   }
 
   /** After a keep/redact/add/remove: re-render only the touched paragraphs. */
+  /** Every change to what will be redacted, or how, makes an earlier saved file out of date. */
+  function markReviewChanged() {
+    state.reviewRevision += 1;
+    if (state.report) state.reportStale = true;
+  }
+
   function afterReviewChange(segIds, focusId) {
     hideTip();
     state.replacements = computeReplacements();
@@ -1228,7 +1276,7 @@
       const target = focusId ? markEls.get(focusId) : null;
       if (target) target.focus({ preventScroll: true });
     }
-    if (state.report) state.reportStale = true;
+    markReviewChanged();
     renderReview();
     updateUI();
   }
@@ -1237,6 +1285,7 @@
     const p = el.closest('.para');
     const sp = spanOfEl.get(el);
     if (!p || !sp) return;
+    if (state.busy.redact) return; // the file being written was built from the review as it was
     const hadFocus = document.activeElement === el;
     let focusId = sp.id;
     if (sp.kind === 'user') {
@@ -1269,7 +1318,7 @@
   function resetReview() {
     state.excluded = new Set();
     state.userSpans = [];
-    if (state.report) state.reportStale = true;
+    markReviewChanged();
     renderDocument();
     renderReview();
     updateUI();
@@ -1559,6 +1608,7 @@
     ui.residual.classList.toggle('is-warn', fixes > 0);
     ui.residualValue.textContent = fixes > 0 ? plural(fixes, 'Safety-Net Fix', 'Safety-Net Fixes') : '0 Leaks';
     ui.reportStale.hidden = !state.reportStale;
+    ui.btnDownloadAgain.textContent = state.reportStale ? 'Redact Again & Download' : 'Download Again';
 
     const metadata = Array.isArray(r.metadata_cleared) ? r.metadata_cleared : [];
     const stats = [
@@ -1567,6 +1617,7 @@
       ['Comment Authors Anonymised', r.comment_authors_anonymised, fmtInt],
       ['Metadata Fields Cleared', metadata.length, fmtInt],
       ['Fields Scrubbed', r.fields_scrubbed, fmtInt],
+      ['Bookmarks Renamed', r.bookmarks_renamed, fmtInt],
       ['Tracked Changes Accepted', r.tracked_changes_accepted, fmtInt],
       ['Thumbnail Removed', r.thumbnail_removed, (v) => (v ? 'Yes' : 'No')],
       ['Time Taken', r.elapsed_ms, fmtMs],
@@ -1595,12 +1646,13 @@
         extra.push({ segment_id: hiddenId, start: u.start, end: u.end, label: u.label }); // same text → same offsets
       }
     }
-    return { mode: state.options.mode, exclude_ids: exclude, extra_spans: extra };
+    return { mode: state.options.mode, exclude_ids: exclude, extra_spans: extra, analysis_id: state.analysis.analysisId || null };
   }
 
   async function runRedact() {
     if (!state.doc || !state.analysis || isBusy() || state.analysisPending || isStale()) return;
     const req = buildRedactRequest();
+    const revision = state.reviewRevision;
     const docId = state.doc.doc_id;
     setBusy('redact', true);
     let res = null;
@@ -1612,36 +1664,44 @@
       state.busy.redact = false;
     }
     if (res && state.doc && state.doc.doc_id === docId) {
+      // a change made while the request was running is not in the file that was just written
+      const changed = state.reviewRevision !== revision;
       state.report = res.report || {};
-      state.reportStale = false;
-      state.downloadUrl = res.download_url || docUrl(docId, '/download');
+      state.reportStale = changed;
       if (!isNarrow()) setInspector(true, 'changes'); // show the report
       renderReview();
       updateUI();
-      await downloadRedacted();
+      if (changed) {
+        toast('The review changed while the document was being redacted. Choose Redact & Download again to include the change.', 'warn', 0);
+      } else {
+        await downloadRedacted();
+      }
     } else {
       updateUI();
     }
     runQueuedAnalysis();
   }
 
+  /** The application writes the redacted copy itself, where the user chooses in a Save As dialog. */
   async function downloadRedacted() {
-    if (!state.downloadUrl || state.busy.download) return false;
+    if (!state.doc || !state.report || state.busy.download) return false;
+    if (state.reportStale) return runRedact(); // never hand out a file that predates the latest changes
     setBusy('download', true);
     let ok = false;
     try {
-      const res = await api.download(state.downloadUrl);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const link = h('a', { href: url, download: 'redacted.docx', class: 'visually-hidden' });
-      document.body.append(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-      toast('Saved redacted.docx to your downloads.', 'success', 3500);
-      ok = true;
+      const result = await bridge().save_redacted(state.doc.doc_id, 'redacted.docx');
+      if (!result || result.status !== 200) {
+        const detail = result && result.body && result.body.detail;
+        throw new ApiError(result ? result.status : 0, detail || 'The file could not be saved.');
+      }
+      if (result.body && result.body.path) {
+        toast(`Saved ${result.body.path}`, 'success', 5000);
+        ok = true;
+      } else {
+        toast('Not saved. Choose Download Again to save the redacted copy.', 'warn', 5000);
+      }
     } catch (err) {
-      toastError(err, 'Download Failed');
+      toastError(err, 'Saving Failed');
     } finally {
       setBusy('download', false);
     }
@@ -1716,7 +1776,6 @@
 
     ui.btnRedact.disabled = !hasAnalysis || busy || updating || stale;
     setButton(ui.btnRedact, state.busy.redact || state.busy.download, state.busy.redact ? 'Redacting…' : 'Redact & Download');
-    ui.emptySample.disabled = busy || !state.config;
     if (openPop) {
       ui.menuStartOver.disabled = !hasDoc || busy;
       ui.menuOpen.disabled = state.busy.upload || state.busy.redact;
@@ -1743,10 +1802,10 @@
   // ===================================================================== wiring
   function cacheElements() {
     const ids = {
-      docTitle: 'doc-title', tbUpdating: 'tb-updating', mockBadge: 'mock-badge', viewSelect: 'view-select',
+      docTitle: 'doc-title', tbUpdating: 'tb-updating', viewSelect: 'view-select',
       btnFile: 'btn-file', btnSettings: 'btn-settings', btnRedact: 'btn-redact',
       canvas: 'canvas', progress: 'progress', emptyState: 'empty-state', dropTarget: 'drop-target',
-      emptyOpen: 'empty-open', emptySample: 'empty-sample', maxMb: 'max-mb',
+      emptyOpen: 'empty-open', maxMb: 'max-mb',
       loadingState: 'loading-state', loadingText: 'loading-text', loadingRetry: 'loading-retry', pages: 'pages',
       inspector: 'inspector', tabChanges: 'tab-changes', tabSettings: 'tab-settings', changesCount: 'changes-count',
       btnInspClose: 'btn-insp-close', panelChanges: 'panel-changes', panelSettings: 'panel-settings',
@@ -1790,18 +1849,18 @@
     ui.dropTarget.addEventListener('keydown', (e) => {
       if (e.target === ui.dropTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openFilePicker(); }
     });
-    ui.emptySample.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (window.RedactNERMock) handleFile(window.RedactNERMock.sampleFile());
-    });
     ui.loadingRetry.addEventListener('click', () => startAnalysis(true));
     ui.fileInput.addEventListener('change', () => handleFile(ui.fileInput.files && ui.fileInput.files[0]));
     ui.canvas.addEventListener('dragenter', (e) => { if (hasFiles(e)) ui.canvas.classList.add('is-dragover'); });
     ui.canvas.addEventListener('dragleave', (e) => { if (!ui.canvas.contains(e.relatedTarget)) ui.canvas.classList.remove('is-dragover'); });
-    window.addEventListener('dragover', (e) => { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
-    window.addEventListener('drop', (e) => {
-      if (!hasFiles(e)) return;
+    // Every drag is cancelled, so a dropped link or page can never replace the interface; only files are used.
+    window.addEventListener('dragover', (e) => {
       e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = hasFiles(e) ? 'copy' : 'none';
+    });
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (!hasFiles(e)) return;
       ui.canvas.classList.remove('is-dragover');
       const files = e.dataTransfer.files;
       if (files.length > 1) toast('One document at a time: opening the first file.', 'warn');
@@ -1892,19 +1951,14 @@
     });
   }
 
-  function readToken() {
-    const meta = document.querySelector('meta[name="redactner-token"]');
-    return meta ? meta.getAttribute('content') || '' : '';
-  }
-
   async function loadConfig() {
-    setModelStatus('pending', 'Connecting…');
+    setModelStatus('pending', 'Starting…');
     try {
       state.config = normalizeConfig(await api.config());
       initOptions();
       setModelStatus('ok', modelText() || 'Model Ready');
     } catch (err) {
-      setModelStatus('error', 'Server Unavailable');
+      setModelStatus('error', 'Model Unavailable');
       const msg = err && err.message ? err.message : String(err);
       toast(`Could Not Load Settings: ${msg}`, 'error', 0, { label: 'Retry', run: loadConfig });
     }
@@ -1914,15 +1968,6 @@
 
   async function boot() {
     cacheElements();
-    state.mock = new URLSearchParams(window.location.search).get('mock') === '1';
-    if (state.mock && !window.RedactNERMock) {
-      state.mock = false;
-      toast('Mock mode was requested but mock.js did not load; using the real server.', 'error', 0);
-    }
-    transport = state.mock ? window.RedactNERMock.fetch : window.fetch.bind(window);
-    state.token = readToken();
-    ui.mockBadge.hidden = !state.mock;
-    ui.emptySample.hidden = !state.mock;
     try {
       const saved = window.localStorage.getItem(TAB_KEY);
       if (saved === 'changes' || saved === 'settings') state.inspectorTab = saved;
@@ -1932,18 +1977,8 @@
     bindEvents();
     renderReview();
     updateUI();
-    if (!state.mock && (!state.token || state.token === TOKEN_PLACEHOLDER)) {
-      toast('This page has no session token, so the server will refuse requests. Open the address printed by the RedactNER server, or add ?mock=1 for a demo.', 'warn', 0);
-    }
+    await bridgeReady();
     await loadConfig();
-    // Screenshot/demo mode: ?mock=1&demo=1 opens the bundled sample (optionally &view=redacted|original).
-    const params = new URLSearchParams(window.location.search);
-    if (state.mock && params.get('demo') === '1') {
-      ui.mockBadge.hidden = true;
-      const view = params.get('view');
-      if (view === 'redacted' || view === 'original') setView(view);
-      handleFile(window.RedactNERMock.sampleFile());
-    }
   }
 
   function start() {

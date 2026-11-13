@@ -1,6 +1,6 @@
 """End-to-end facade: DOCX → detection → review → redacted DOCX.
 
-The same object backs the CLI, the web API and notebook 03's demo cell.
+The same object backs the CLI, the desktop window and notebook 03's demo cell.
 """
 
 from __future__ import annotations

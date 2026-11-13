@@ -5,9 +5,9 @@
 **Finds and Redacts Names, Contact Details, ID Numbers and More in Word Documents, Entirely on Your Own Machine**
 
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
-![PyTorch 2.6+](https://img.shields.io/badge/PyTorch-2.6%2B-EE4C2C?logo=pytorch&logoColor=white)
-![Transformers 4.56+](https://img.shields.io/badge/Transformers-4.56%2B-FFD21E?logo=huggingface&logoColor=black)
-![FastAPI](https://img.shields.io/badge/FastAPI-Local%20Web%20App-009688?logo=fastapi&logoColor=white)
+![PyTorch 2.13+](https://img.shields.io/badge/PyTorch-2.13%2B-EE4C2C?logo=pytorch&logoColor=white)
+![Transformers 5.10+](https://img.shields.io/badge/Transformers-5.10%2B-FFD21E?logo=huggingface&logoColor=black)
+![Desktop App](https://img.shields.io/badge/Desktop%20App-Offline%2C%20No%20Server-009688)
 ![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Linux%20%7C%20Windows-555555)
 [![License: MIT](https://img.shields.io/badge/License-MIT-1F6FEB)](LICENSE)
 
@@ -30,7 +30,7 @@ Everything runs locally. Documents are never uploaded to an external service, so
 - **Review Before Export.** Every detection can be inspected, kept or removed, and missed text can be added by selecting it.
 - **Verified Output.** Before a file is returned, every part of the package is scanned again to confirm that no redacted value remains, and an audit report summarises the changes.
 - **Two Redaction Styles.** Consistent labels such as `[PERSON_1]` keep the document readable; fixed-width blocks hide the length of each value.
-- **Three Interfaces.** A browser application, a command-line tool and a Python API.
+- **Three Interfaces.** A desktop application, a command-line tool and a Python API.
 
 ## How It Works
 
@@ -146,9 +146,9 @@ The full tables, including precision, recall, F5 and entity F1 for every system,
 
 - [uv](https://docs.astral.sh/uv/), which also installs Python 3.12 automatically when it is missing
 - Git
-- Optional: an NVIDIA GPU with a current driver for CUDA acceleration on Windows or Linux
+- Optional: an NVIDIA GPU with a driver from the 580 series or newer for CUDA acceleration on Windows or Linux
 
-PyTorch is installed with CUDA 12.8 support on Windows and Linux (it also runs on the CPU when no GPU is present) and as the standard build on macOS. macOS requires an Apple Silicon Mac.
+PyTorch is installed with CUDA 13.0 support on Windows and Linux (it also runs on the CPU when no GPU is present) and as the standard build on macOS. macOS requires an Apple Silicon Mac.
 
 ### macOS
 
@@ -192,15 +192,39 @@ The exported model (DeBERTa-v3-base with half-precision weights, about 360 MB) i
 
 ## Usage
 
-### Web Application
+### Desktop Application
+
+The desktop application shows the document with every detected item marked, lets you keep, remove or add redactions, and saves the redacted copy where you choose.
 
 ```bash
-uv run redactner serve
+uv sync --extra desktop
+uv run redactner desktop
 ```
 
-Then open <http://127.0.0.1:8000>. Open a `.docx` file, review the highlighted changes, and choose **Redact & Download** to save the redacted copy. The audit report and the final leak check are shown alongside the document.
+Open a `.docx` file, review the highlighted changes, and choose **Redact & Download** to save the redacted copy through the *Save As* dialog. The audit report and the final leak check are shown alongside the document.
 
 ![The redacted version of the same CV](docs/images/app-redacted.png)
+
+The window is drawn by WebView2 on Windows, WebKit on macOS and Qt WebEngine on Linux (the `desktop` extra installs it there). `uv run python -m redactner.desktop --window-test` opens the window, puts a built-in test document through it and reports whether every step worked. So far the window has been used and tested on Windows only.
+
+#### Windows Package
+
+RedactNER can be packaged as an ordinary Windows program: a `RedactNER.exe` with Python, the libraries and the model included, so the person using it installs nothing.
+
+Build it on a 64-bit Windows machine that has [uv](https://docs.astral.sh/uv/):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File packaging\build.ps1 -Zip
+```
+
+The script creates a separate, CPU-only build environment, writes the application to `dist\RedactNER\` (about 900 MB) with a zip of it beside it (about 520 MB), and runs the application's self-test on the result. To share the application, send the zip: the recipient extracts it and opens `RedactNER.exe`. The file `RedactNER-<version>-windows-x64.zip.sha256` holds the zip's SHA-256 checksum, so a download can be checked with `Get-FileHash`.
+
+- **No Server, No Network.** The window talks to the application directly, inside one program. Nothing listens on a network port, the model libraries run in offline mode, the embedded browser keeps no history, and its own background traffic is switched off.
+- **No Graphics Card Needed.** The packaged application runs the model on the processor and analyses a two-page document in about a second.
+- **Verified Build.** Every package of the build environment is pinned to an exact version and file checksum in `packaging\requirements.txt`, and the licences of everything included are written to `THIRD-PARTY-NOTICES.txt` in the application folder.
+- **Requirements.** 64-bit Windows with the Microsoft Edge WebView2 Runtime, which Windows 11 includes. Without it, RedactNER says where to get it.
+- **Signing.** `packaging\build.ps1 -SignThumbprint <thumbprint>` signs the program with your code-signing certificate, which a certificate authority has to issue to you. A build made without one is unsigned, and Windows may show a SmartScreen warning for a downloaded copy; choose *More info*, then *Run anyway*.
+- **Troubleshooting.** Messages are written to `%LOCALAPPDATA%\RedactNER\logs`; they record start-up, saving and errors, never the text of a document. `RedactNER.exe --self-test` checks the model, the Word engine and the interface without opening a window, and `RedactNER.exe --window-test` opens the window and puts a built-in test document through it.
 
 ### Command Line
 
@@ -220,6 +244,8 @@ uv run redactner analyze contract.docx
 | `--mode` | `label`, `mask` | Replacement style |
 | `--preset` | `strict`, `direct` | All categories except organisations, or direct identifiers only |
 | `--threshold` | `0.01` to `0.99` | Override the tuned decision threshold; higher values redact more |
+| `--report` | a file path | Save the audit report as JSON |
+| `--force` | | Replace the output file if it already exists |
 | `--device` | `cuda`, `cpu` | Compute device (detected automatically by default) |
 
 ### Python
@@ -234,17 +260,6 @@ redacted, report = pipeline.redact_bytes(Path("contract.docx").read_bytes(), mod
 
 Path("contract_redacted.docx").write_bytes(redacted)
 print(report["counts_by_label"])
-```
-
-### REST API
-
-The server documents its API at <http://127.0.0.1:8000/docs>. Every request needs the access token printed when the server starts.
-
-```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/redact?mode=label" \
-  -H "X-RedactNER-Token: <token>" \
-  -H "Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document" \
-  --data-binary @contract.docx -o contract_redacted.docx
 ```
 
 ## Training
@@ -274,6 +289,8 @@ uv run papermill notebooks/04_error_analysis.ipynb notebooks/04_error_analysis.i
 
 Training uses 512-token windows with a 128-token overlap, two epochs and bf16 mixed precision. The ModernBERT-large run adds `-y "GRADIENT_CHECKPOINTING: true" -p OPTIM adamw_bnb_8bit`.
 
+The copies in `notebooks/executed/` record the runs behind the reported results, made with Transformers 4.57 and PyTorch 2.11. The project has since moved to newer versions of both for their security fixes. The exported model reads its tokenizer exactly as it was saved, so it gives the same output on the old and the new versions.
+
 ## Project Structure
 
 ```
@@ -289,7 +306,12 @@ redactner/
 │   ├── weights.py          Storage of Large Model Files in Parts
 │   ├── operators.py        Replacement Styles
 │   ├── cli.py              Command-Line Interface
-│   └── api/                Web Application and REST API
+│   ├── service.py          Application Operations with Their Input Checks and the In-Memory Document Store
+│   ├── bridge.py           The Two Functions the Window May Call
+│   ├── desktop.py          Desktop Application Window
+│   ├── paths.py            File Locations in a Checkout and in the Packaged Application
+│   └── ui/                 Interface Shown in the Window
+├── packaging/              Build Recipe of the Windows Desktop Application
 ├── notebooks/              Data Preparation, Training, Evaluation and Error Analysis
 ├── scripts/                Sample Document Generator and Word Compatibility Check
 ├── samples/                Synthetic Example Documents
@@ -304,14 +326,16 @@ redactner/
 uv run pytest -q
 ```
 
-The suite covers span decoding and per-category thresholds, the term lists, the evaluation metrics (including the TAB scores), the storage of large model files in parts, the Word engine (formatting, tracked changes, comments, hyperlinks, text boxes, metadata and leak checks) and the REST API, including its security checks. It uses a stub in place of the trained model, so it runs without a GPU.
+The suite covers span decoding and per-category thresholds, the term lists, the evaluation metrics (including the TAB scores), the storage of large model files in parts, the Word engine (formatting, tracked changes, comments, hyperlinks, text boxes, metadata and leak checks), the application's operations and their input checks, the functions the window may call, and the desktop application. It uses a stub in place of the trained model, so it runs without a GPU.
 
 ## Privacy and Security
 
-- The server listens on `127.0.0.1` only and every request requires a per-session access token.
-- Uploaded documents are held in memory for a limited time and are never written to disk by the application.
-- Requests from other websites are rejected, and the web interface runs under a strict Content Security Policy.
-- Encrypted, macro-enabled and Strict Open XML documents are refused rather than partially processed.
+- **Nothing leaves the computer.** The application has no server and opens no network port; the window calls the application directly inside one program.
+- **Documents stay in memory.** An opened document is never written to disk by the application, and it is forgotten when it is closed or the window closes.
+- **The window is locked down.** The interface runs under a strict Content Security Policy and can call only two functions of the application. On Windows the window also refuses to navigate to another page.
+- **Unsafe files are refused.** Encrypted, macro-enabled and Strict Open XML documents are rejected rather than partially processed.
+
+[SECURITY.md](SECURITY.md) explains how to report a problem.
 
 ## Limitations
 

@@ -205,7 +205,7 @@ Open a `.docx` file, review the highlighted changes, and choose **Redact & Downl
 
 ![The redacted version of the same CV](docs/images/app-redacted.png)
 
-The window is drawn by WebView2 on Windows, WebKit on macOS and Qt WebEngine on Linux (the `desktop` extra installs it there). `uv run python -m redactner.desktop --window-test` opens the window, puts a built-in test document through it and reports whether every step worked. So far the window has been used and tested on Windows only.
+The window is drawn by WebView2 on Windows, WebKit on macOS and Qt WebEngine on Linux (the `desktop` extra installs it there). `uv run python -m redactner.desktop --window-test` opens the window, puts a built-in test document through it and reports whether every step worked. The project's GitHub workflow runs that test, with the rest of the test suite, on all three systems.
 
 #### Windows Package
 
@@ -316,6 +316,7 @@ redactner/
 ├── scripts/                Sample Document Generator and Word Compatibility Check
 ├── samples/                Synthetic Example Documents
 ├── tests/                  Test Suite
+├── .github/workflows/      Tests on Windows, Linux and macOS
 ├── results/                Evaluation Tables and Figures
 └── docs/images/            Screenshots and Figures Used in This README
 ```

@@ -68,5 +68,19 @@ jobs:
         run: |
           cat window-test.json 2>/dev/null || echo "no result file"
           for folder in "$LOCALAPPDATA/RedactNER" "$HOME/.local/state/RedactNER" "$HOME/Library/Application Support/RedactNER"; do
-            if [ -d "$folder/logs" ]; then tail -n 80 "$folder/logs/redactner.log"; cat "$folder/logs/console.log" 2>/dev/null || true; fi
+            if [ -d "$folder/logs" ]; then
+              tail -n 80 "$folder/logs/redactner.log"
+              for extra in console.log crash.log; do
+                if [ -s "$folder/logs/$extra" ]; then echo "--- $extra"; cat "$folder/logs/$extra"; fi
+              done
+            fi
           done
+
+      - name: What Windows recorded, if the window test failed
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          "WebView2 Runtime: " + (Get-ItemProperty $key -ErrorAction SilentlyContinue).pv
+          Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Level = 1, 2; StartTime = (Get-Date).AddMinutes(-20) } -ErrorAction SilentlyContinue |
+            Select-Object -First 6 | Format-List TimeCreated, ProviderName, Id, Message

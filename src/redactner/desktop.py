@@ -30,9 +30,11 @@ from __future__ import annotations
 import argparse
 import base64
 import contextlib
+import faulthandler
 import functools
 import hashlib
 import html
+import importlib.util
 import io
 import json
 import logging
@@ -99,6 +101,8 @@ def setup_logging() -> Path:
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
     logging.getLogger("pywebview").setLevel(logging.WARNING)
+    with contextlib.suppress(Exception):  # if the program dies inside a native library, say where (code lines only)
+        faulthandler.enable(file=open(folder / "crash.log", "w", encoding="utf-8"), all_threads=True)  # noqa: SIM115
     if sys.stdout is None or sys.stderr is None:
         # libraries that print would fail on the missing streams of a windowed executable
         console = open(folder / "console.log", "w", buffering=1, encoding="utf-8", errors="replace")  # noqa: SIM115
@@ -432,8 +436,11 @@ def window_test(window, locked: bool, wait_for_report: Callable[[float], dict | 
     from .docx_engine import find_residuals
 
     result: dict = {"navigation_lock": locked, "passed": False}
+    log.info("window test: sending the test script to the page")
     window.run_js(probe_script(self_test_document()))
+    log.info("window test: waiting for the page to report")
     page = wait_for_report(420)
+    log.info("window test: the page %s", "reported" if page is not None else "did not answer")
     if page is None:
         result["error"] = "the page did not answer; its script or its connection to the application is not working"
         return result
@@ -452,6 +459,16 @@ def window_test(window, locked: bool, wait_for_report: Callable[[float], dict | 
         passed = passed and result["stayed_after_navigation_attempt"]
     result["passed"] = bool(passed)
     return result
+
+
+def browser_engine() -> str | None:
+    """The engine the window is drawn with: WebView2 on Windows, Qt WebEngine on Linux when it is installed
+    (the ``desktop`` extra installs it), otherwise whatever the window toolkit finds (WebKit on macOS)."""
+    if os.name == "nt":
+        return "edgechromium"
+    if sys.platform.startswith("linux") and importlib.util.find_spec("PyQt6") is not None:
+        return "qt"
+    return None
 
 
 def run_window(options: argparse.Namespace, log_path: Path) -> int:
@@ -507,7 +524,7 @@ def run_window(options: argparse.Namespace, log_path: Path) -> int:
             window.load_html(page, "about:blank")
             log.info("interface loaded")
             if testing:
-                window.events.loaded.wait(60)
+                log.info("window test: page loaded: %s", window.events.loaded.wait(60))
                 test_result.update(window_test(window, locked, wait_for_report, save_dir))
         except Exception as exc:  # noqa: BLE001 - every start-up failure is reported in the window
             log.exception("start-up failed")
@@ -520,7 +537,7 @@ def run_window(options: argparse.Namespace, log_path: Path) -> int:
             with contextlib.suppress(Exception):
                 window.destroy()
 
-    webview.start(boot, gui="edgechromium" if os.name == "nt" else None, private_mode=True)
+    webview.start(boot, gui=browser_engine(), private_mode=True)
     if not testing:
         return 1 if failed.is_set() else 0
     if scratch_dir is not None:
